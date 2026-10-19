@@ -56,3 +56,35 @@ export function checkAuth() {
     const user = state.getUser();
     return !!user;
 }
+
+export async function refreshUserProfile() {
+    const user = state.getUser();
+    if (!user || !user.customer_code) return null;
+    try {
+        const profileData = await callRPC('fn_mt_game_obter_perfil', {
+            p_customer_code: user.customer_code
+        });
+        if (profileData && profileData.length > 0) {
+            const p = profileData[0];
+            const updated = {
+                ...user,
+                display_name: p.display_name || user.display_name,
+                current_level: p.current_level || user.current_level,
+                gender: p.gender || user.gender,
+                avatar_url: p.avatar_url !== undefined ? p.avatar_url : user.avatar_url,
+                is_admin: p.is_admin || false,
+                total_points: p.total_points ?? user.total_points,
+                total_games: p.total_games ?? user.total_games,
+                total_wins: p.total_wins ?? user.total_wins,
+                rank_position: p.rank_position ?? user.rank_position,
+                terms_accepted: !!p.terms_accepted_at
+            };
+            state.setUser(updated);
+            return updated;
+        }
+    } catch (e) {
+        console.warn('Falha na sincronização silenciosa de perfil:', e);
+    }
+    return user;
+}
+

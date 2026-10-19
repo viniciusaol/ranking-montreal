@@ -89,6 +89,37 @@ export async function renderProfile() {
                 <span style="font-size: 18px; color: ${isRetroOpen ? '#f59e0b' : 'var(--color-grey-text)'}; font-weight: 800; flex-shrink: 0;">${isRetroOpen ? '→' : '🔒'}</span>
             </div>
 
+            <!-- Painel Administrativo Exclusivo (Admin) -->
+            ${user.is_admin ? `
+                <div class="card" style="
+                    background: rgba(220, 38, 38, 0.05);
+                    border: 1.5px solid rgba(220, 38, 38, 0.25);
+                    border-radius: var(--radius-md);
+                    padding: 14px 16px;
+                    margin-bottom: var(--space-md);
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    cursor: pointer;
+                " onclick="window.location.hash='#/admin'">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="font-size: 22px; background: rgba(220, 38, 38, 0.1); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            👑
+                        </div>
+                        <div>
+                            <div style="font-weight: 800; font-size: 14px; color: #991b1b; display: flex; align-items: center; gap: 6px;">
+                                Painel do Administrador
+                                <span style="font-size: 9px; font-weight: 800; background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px;">ACESSO VIP</span>
+                            </div>
+                            <div style="font-size: 12px; color: var(--color-grey-text); margin-top: 2px;">
+                                Moderação de contestações, gestão e controle do clube
+                            </div>
+                        </div>
+                    </div>
+                    <span style="font-size: 18px; color: #dc2626; font-weight: 800; flex-shrink: 0;">→</span>
+                </div>
+            ` : ''}
+
             <!-- Atalho Meus Jogos Exclusivos -->
             <div class="card" id="btn-profile-my-games" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-left: 5px solid var(--color-saibro); margin-bottom: var(--space-md); transition: transform 0.15s ease;" onclick="window.location.hash='#/jogos'">
                 <div style="display: flex; align-items: center; gap: 12px;">
