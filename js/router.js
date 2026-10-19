@@ -38,6 +38,9 @@ class Router {
 
         if (hash === '/jogos/criar') {
             routeKey = '/jogos/criar';
+        } else if (hash === '/jogos/abertos') {
+            routeKey = '/jogos';
+            params.tab = 'open';
         } else if (hash.startsWith('/jogos/') && hash !== '/jogos') {
             const parts = hash.split('/');
             routeKey = '/jogos/detail';

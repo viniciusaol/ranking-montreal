@@ -53,9 +53,9 @@ export async function notifyOpenGameCreated(game, creator) {
     const duration = game.duration_minutes ? `${game.duration_minutes} min` : '60 min';
     const allowedChallengers = getAllowedChallengersText(level);
     
-    // Constrói o link oficial da partida (usando o domínio público de produção)
+    // Link limpo, curto e direto para a aba de Jogos Abertos (sem códigos UUID longos)
     const baseUrl = CONFIG.APP_PUBLIC_URL || (window.location.origin + window.location.pathname.replace(/\/+$/, ''));
-    const gameLink = `${baseUrl}/#/jogos/${gameId}`;
+    const gameLink = `${baseUrl}/#/jogos/abertos`;
 
     const messageText = 
 `🎾 *NOVO DESAFIO ABERTO NO RANKING!*
@@ -68,7 +68,7 @@ export async function notifyOpenGameCreated(game, creator) {
 🎾 *Formato:* 1 Set até 8 games (No-Ad)
 📍 *Local:* Montreal Tênis Clube
 
-Quem topa o desafio? Acesse o link abaixo e clique em *"Entrar na Partida"*:
+Quem topa o desafio? Acesse o app e entre na partida:
 👉 ${gameLink}`;
 
     const payload = {

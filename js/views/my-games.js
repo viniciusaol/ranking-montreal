@@ -8,11 +8,17 @@ import { formatDateBR, formatTimeHM, getGameStatusLabel, isLevelEligible } from 
 
 let activeTab = 'upcoming'; // 'upcoming', 'open', 'history'
 
-export async function renderMyGames() {
+export async function renderMyGames(params = {}) {
     const container = document.getElementById('view-content');
     const user = state.getUser();
 
     if (!user) return;
+
+    if (params && params.tab) {
+        activeTab = params.tab;
+    } else if (window.location.hash.includes('/abertos')) {
+        activeTab = 'open';
+    }
 
     container.innerHTML = `
         <div class="view-container active">
