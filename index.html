@@ -18,10 +18,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
   <!-- Styles -->
-  <link rel="stylesheet" href="./css/variables.css">
-  <link rel="stylesheet" href="./css/reset.css">
-  <link rel="stylesheet" href="./css/components.css">
-  <link rel="stylesheet" href="./css/views.css">
+  <link rel="stylesheet" href="./css/variables.css?v=1.5.6">
+  <link rel="stylesheet" href="./css/reset.css?v=1.5.6">
+  <link rel="stylesheet" href="./css/components.css?v=1.5.6">
+  <link rel="stylesheet" href="./css/views.css?v=1.5.6">
 
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -33,9 +33,9 @@
     <div class="header-brand">
       <img src="./assets/logo_superhorizontal.png" alt="Montreal Tênis Clube" class="header-logo">
     </div>
-    <div class="header-user-badge" id="header-badge-container">
+    <div class="header-user-badge" id="header-badge-container" onclick="window.location.hash='#/perfil'" title="Ver Meu Perfil">
       <span id="header-user-name">Carregando...</span>
-      <span style="color: var(--color-saibro);" id="header-user-level">•</span>
+      <span style="color: var(--color-saibro); font-weight: 800;" id="header-user-level">•</span>
     </div>
   </header>
 
@@ -147,6 +147,6 @@
   </div>
 
   <!-- Entry Script (ES Module) -->
-  <script type="module" src="./js/app.js?v=1.5.5"></script>
+  <script type="module" src="./js/app.js?v=1.5.6"></script>
 </body>
 </html>
