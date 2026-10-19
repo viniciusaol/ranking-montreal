@@ -228,19 +228,14 @@ function renderStoryTab(container, user) {
                     pointer-events: none;
                 "></div>
 
-                <!-- Topo: Logo & Temporada -->
+                <!-- Topo: Logo Oficial Montreal & Temporada -->
                 <div style="position: relative; z-index: 2; text-align: center;">
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 2px;">
-                        <span style="font-size: 16px;">🎾</span>
-                        <span style="font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #f59e0b; text-transform: uppercase;">
-                            Montreal Tênis Clube
-                        </span>
-                    </div>
-                    <div style="font-size: 13px; font-weight: 800; color: #ffffff; letter-spacing: 1px;">
+                    <img src="./assets/logo_montreal_branco.png" alt="Montreal Tênis Clube" style="max-width: 175px; max-height: 36px; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5)); display: block; margin: 0 auto 5px auto;">
+                    <div style="font-size: 13px; font-weight: 900; color: #f59e0b; letter-spacing: 1.5px; text-transform: uppercase;">
                         RETROSPECTIVA ${selectedYear}
                     </div>
-                    <div style="font-size: 9px; color: #a1a1aa; margin-top: 1px;">
-                        01/01 a 30/11 • Temporada Oficial
+                    <div style="font-size: 9px; color: #cbd5e1; font-weight: 600; margin-top: 1px;">
+                        Temporada Oficial • 01/01 a 30/11
                     </div>
                 </div>
 
@@ -367,13 +362,14 @@ function renderStoryTab(container, user) {
                     ✨ "${p.highlight_stat || 'Batalhas inesquecíveis no saibro da Montreal!'}"
                 </div>
 
-                <!-- Rodapé Oficial -->
-                <div style="position: relative; z-index: 2; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px; margin-top: 6px;">
-                    <div style="font-size: 9px; font-weight: 700; color: #e2e8f0; letter-spacing: 0.5px;">
-                        ranking.montrealtenis.com.br
+                <!-- Rodapé Oficial com Logo Símbolo -->
+                <div style="position: relative; z-index: 2; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px; margin-top: 6px; display: flex; align-items: center; justify-content: space-between; padding-left: 4px; padding-right: 4px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <img src="./assets/logo_simbolo_branco.png" alt="Montreal" style="width: 20px; height: 20px; object-fit: contain; opacity: 0.9;">
+                        <span style="font-size: 9px; font-weight: 700; color: #e2e8f0; letter-spacing: 0.5px;">ranking.montrealtenis.com.br</span>
                     </div>
-                    <div style="font-size: 8px; color: #94a3b8; margin-top: 1px;">
-                        @montreal.tenisclube • Curitiba/PR
+                    <div style="font-size: 8.5px; color: #f59e0b; font-weight: 800;">
+                        @montreal.tenisclube
                     </div>
                 </div>
             </div>
@@ -477,22 +473,52 @@ async function handleShareStoryImage(p, year) {
     ctx.lineWidth = 10;
     roundRect(ctx, 40, 40, 1000, 1840, 40, false, true);
 
-    // 5. Cabeçalho
+    // 5. Cabeçalho com Logo Oficial Montreal
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#f59e0b';
-    ctx.font = 'bold 36px "Hanken Grotesk", sans-serif';
-    ctx.fillText('🎾 MONTREAL TÊNIS CLUBE', 540, 160);
+    let logoDrawn = false;
+    try {
+        const imgLogo = await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => resolve(null);
+            img.src = './assets/logo_montreal_branco.png';
+        });
+        if (imgLogo) {
+            const logoW = 500;
+            const logoH = Math.round(logoW * (imgLogo.naturalHeight / imgLogo.naturalWidth));
+            const logoX = (1080 - logoW) / 2;
+            const logoY = 120;
+            ctx.drawImage(imgLogo, logoX, logoY, logoW, logoH);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '900 46px "Hanken Grotesk", sans-serif';
-    ctx.fillText(`RETROSPECTIVA ${year}`, 540, 225);
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = '900 44px "Hanken Grotesk", sans-serif';
+            ctx.fillText(`RETROSPECTIVA ${year}`, 540, logoY + logoH + 54);
 
-    ctx.fillStyle = '#a1a1aa';
-    ctx.font = 'bold 26px "Hanken Grotesk", sans-serif';
-    ctx.fillText('Temporada Oficial • Jogos Válidos de 01/01 a 30/11', 540, 275);
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = 'bold 24px "Hanken Grotesk", sans-serif';
+            ctx.fillText('Temporada Oficial • Jogos Válidos de 01/01 a 30/11', 540, logoY + logoH + 96);
+            logoDrawn = true;
+        }
+    } catch (e) {
+        console.warn("Logo load error:", e);
+    }
+
+    if (!logoDrawn) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 36px "Hanken Grotesk", sans-serif';
+        ctx.fillText('🎾 MONTREAL TÊNIS CLUBE', 540, 160);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 46px "Hanken Grotesk", sans-serif';
+        ctx.fillText(`RETROSPECTIVA ${year}`, 540, 225);
+
+        ctx.fillStyle = '#a1a1aa';
+        ctx.font = 'bold 26px "Hanken Grotesk", sans-serif';
+        ctx.fillText('Temporada Oficial • Jogos Válidos de 01/01 a 30/11', 540, 275);
+    }
 
     // 6. Avatar / Iniciais do Atleta
-    const avatarY = 460;
+    const avatarY = 470;
     ctx.save();
     ctx.beginPath();
     ctx.arc(540, avatarY, 110, 0, Math.PI * 2);
@@ -625,13 +651,25 @@ async function handleShareStoryImage(p, year) {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.fillRect(100, 1680, 880, 2);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px "Hanken Grotesk", sans-serif';
-    ctx.fillText('ranking.montrealtenis.com.br', 540, 1740);
+    try {
+        const imgSymbol = await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => resolve(null);
+            img.src = './assets/logo_simbolo_branco.png';
+        });
+        if (imgSymbol) {
+            ctx.drawImage(imgSymbol, 540 - 24, 1705, 48, 48);
+        }
+    } catch (e) {}
 
-    ctx.fillStyle = '#94a3b8';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 30px "Hanken Grotesk", sans-serif';
+    ctx.fillText('ranking.montrealtenis.com.br', 540, 1775);
+
+    ctx.fillStyle = '#f59e0b';
     ctx.font = 'bold 24px "Hanken Grotesk", sans-serif';
-    ctx.fillText('Acesse e dispute o ranking oficial do clube • @montreal.tenisclube', 540, 1785);
+    ctx.fillText('Acesse e dispute o ranking oficial • @montreal.tenisclube', 540, 1815);
 
     // 12. Compartilhamento Nativo ou Download
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));

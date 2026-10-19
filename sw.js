@@ -2,11 +2,13 @@
    MONTREAL TÊNIS CLUBE - SERVICE WORKER (PWA READY)
    ==================================================================== */
 
-const CACHE_NAME = 'montreal-ranking-v1.6.0';
+const CACHE_NAME = 'montreal-ranking-v1.6.1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './assets/logo_montreal_branco.png',
+  './assets/logo_simbolo_branco.png',
   './css/variables.css',
   './css/reset.css',
   './css/components.css',
