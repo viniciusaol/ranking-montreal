@@ -53,6 +53,36 @@ export async function renderProfile() {
                 </div>
             </div>
 
+            <!-- Card de Destaque: Retrospectiva do Ano & Story Instagram -->
+            <div class="card" id="btn-profile-retro" style="
+                background: linear-gradient(135deg, #18120f 0%, #29140c 100%);
+                border: 1.5px solid #f59e0b;
+                border-radius: var(--radius-md);
+                padding: 14px 16px;
+                margin-bottom: var(--space-md);
+                box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                cursor: pointer;
+            " onclick="window.location.hash='#/retrospectiva'">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 24px; background: rgba(245, 158, 11, 0.2); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid #f59e0b; flex-shrink: 0;">
+                        📸
+                    </div>
+                    <div>
+                        <div style="font-weight: 800; font-size: 14px; color: #ffffff; display: flex; align-items: center; gap: 6px;">
+                            <span>Meu Resumo ${seasonYear}</span>
+                            <span style="font-size: 9px; font-weight: 800; background: linear-gradient(135deg, #E1306C, #C13584); color: white; padding: 2px 6px; border-radius: 4px;">STORY INSTAGRAM</span>
+                        </div>
+                        <div style="font-size: 12px; color: #cbd5e1; margin-top: 2px;">
+                            Gere seu Story estilo Spotify Wrapped com suas vitórias e compartilhe!
+                        </div>
+                    </div>
+                </div>
+                <span style="font-size: 18px; color: #f59e0b; font-weight: 800; flex-shrink: 0;">→</span>
+            </div>
+
             <!-- Atalho Meus Jogos Exclusivos -->
             <div class="card" id="btn-profile-my-games" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-left: 5px solid var(--color-saibro); margin-bottom: var(--space-md); transition: transform 0.15s ease;" onclick="window.location.hash='#/jogos'">
                 <div style="display: flex; align-items: center; gap: 12px;">

@@ -56,6 +56,12 @@ class Router {
             const parts = hash.split('/');
             routeKey = '/jogos/detail';
             params.gameId = parts[2];
+        } else if (hash.startsWith('/retrospectiva')) {
+            const parts = hash.split('/');
+            routeKey = '/retrospectiva';
+            if (parts[2]) {
+                params.year = parseInt(parts[2], 10);
+            }
         }
 
         const handler = this.routes[routeKey] || this.routes['/home'];

@@ -101,8 +101,41 @@ export async function renderRanking() {
             </div>
 
             <!-- Banner Informativo do Ciclo da Temporada -->
-            <div id="season-status-banner" style="margin-bottom: var(--space-md);">
+            <div id="season-status-banner" style="margin-bottom: var(--space-xs);">
                 ${getSeasonBannerHTML(selectedYear, isCurrentSeason)}
+            </div>
+
+            <!-- Card de Destaque da Retrospectiva & Story Instagram -->
+            <div id="btn-ranking-retro-card" class="card" style="
+                background: linear-gradient(135deg, #18120f 0%, #29140c 100%);
+                border: 1.5px solid #f59e0b;
+                border-radius: var(--radius-md);
+                padding: 12px 14px;
+                margin-bottom: var(--space-md);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                cursor: pointer;
+            ">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="font-size: 24px; background: rgba(245, 158, 11, 0.15); width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid #f59e0b; flex-shrink: 0;">
+                        ✨
+                    </div>
+                    <div>
+                        <div style="font-weight: 800; font-size: 13px; color: #ffffff; display: flex; align-items: center; gap: 6px;">
+                            <span id="label-retro-year">Retrospectiva ${selectedYear}</span>
+                            <span style="font-size: 9px; font-weight: 800; background: linear-gradient(135deg, #E1306C, #C13584); color: white; padding: 1px 5px; border-radius: 4px;">NOVO</span>
+                        </div>
+                        <div style="font-size: 11px; color: #cbd5e1; margin-top: 1px; line-height: 1.3;">
+                            Galeria de Campeões, pódios e seu <strong>Story para o Instagram</strong>!
+                        </div>
+                    </div>
+                </div>
+                <div style="font-size: 18px; color: #f59e0b; font-weight: 800; flex-shrink: 0;">
+                    →
+                </div>
             </div>
 
             <!-- Tabs de Categoria / Gênero -->
@@ -130,6 +163,10 @@ export async function renderRanking() {
         </div>
     `;
 
+    document.getElementById('btn-ranking-retro-card')?.addEventListener('click', () => {
+        window.location.hash = `#/retrospectiva/${selectedYear}`;
+    });
+
     // Configura listener da seleção de temporada
     document.getElementById('select-ranking-season')?.addEventListener('change', async (e) => {
         selectedYear = parseInt(e.target.value, 10);
@@ -138,6 +175,11 @@ export async function renderRanking() {
         const isCurrent = (selectedYear === currentYear);
         if (bannerContainer) {
             bannerContainer.innerHTML = getSeasonBannerHTML(selectedYear, isCurrent);
+        }
+
+        const labelRetro = document.getElementById('label-retro-year');
+        if (labelRetro) {
+            labelRetro.textContent = `Retrospectiva ${selectedYear}`;
         }
 
         await loadRankingList(selectedLevel, selectedGender, selectedYear);

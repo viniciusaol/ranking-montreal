@@ -15,10 +15,12 @@ import { renderGameDetail } from './views/game-detail.js?v=1.5.7';
 import { renderMyGames } from './views/my-games.js?v=1.5.7';
 import { renderProfile } from './views/profile.js?v=1.5.7';
 import { renderAdmin } from './views/admin.js?v=1.5.7';
+import { renderRetrospective } from './views/retrospective.js?v=1.6.0';
 
 // Registrar Rotas
 router.addRoute('/home', renderHome);
 router.addRoute('/ranking', renderRanking);
+router.addRoute('/retrospectiva', renderRetrospective);
 router.addRoute('/jogos/criar', renderGameCreate);
 router.addRoute('/jogos/detail', renderGameDetail);
 router.addRoute('/jogos', renderMyGames);
