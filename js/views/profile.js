@@ -122,8 +122,7 @@ export async function renderProfile() {
     });
 
     document.getElementById('btn-logout')?.addEventListener('click', () => {
-        if (confirm("Deseja realmente sair da sua conta?")) {
-            logout();
-        }
+        logout();
+        window.location.reload();
     });
 }
