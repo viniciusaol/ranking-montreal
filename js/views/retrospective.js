@@ -672,24 +672,49 @@ async function handleShareStoryImage(p, year) {
     ctx.fillText('Acesse e dispute o ranking oficial • @montreal.tenisclube', 540, 1815);
 
     // 12. Compartilhamento Nativo ou Download
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     const fileName = `retrospectiva-montreal-${year}-${(p.display_name || 'tenista').toLowerCase().replace(/\s+/g, '-')}.png`;
+    await exportCanvas(
+        canvas,
+        fileName,
+        `Minha Retrospectiva Montreal ${year}`,
+        `Confira meus resultados na temporada ${year} do Ranking do Montreal Tênis Clube! 🎾🏆`
+    );
+}
+
+function loadCanvasImage(src) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = src;
+    });
+}
+
+async function exportCanvas(canvas, fileName, shareTitle, shareText) {
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     const file = new File([blob], fileName, { type: 'image/png' });
 
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-            title: `Minha Retrospectiva Montreal ${year}`,
-            text: `Confira meus resultados na temporada ${year} do Ranking do Montreal Tênis Clube! 🎾🏆`,
-            files: [file]
-        });
-    } else {
-        // Fallback: Download Direto
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = fileName;
-        link.click();
-        alert("📸 Imagem do Story gerada com sucesso! O arquivo foi baixado no seu dispositivo e está pronto para ser postado nos seus Stories do Instagram.");
+        try {
+            await navigator.share({
+                title: shareTitle,
+                text: shareText,
+                files: [file]
+            });
+            return;
+        } catch (e) {
+            if (e.name === 'AbortError') return;
+            console.warn("Share API falhou, baixando direto:", e);
+        }
     }
+
+    // Fallback: Download Direto
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.click();
+    alert("📸 Imagem do Story gerada com sucesso! O arquivo foi baixado no seu dispositivo e está pronto para ser postado nos seus Stories do Instagram.");
 }
 
 function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
@@ -768,6 +793,38 @@ function renderPodiumsTab(container) {
 
     container.innerHTML = `
         <div style="margin-bottom: 12px;">
+            <!-- Barra de Ações Compartilháveis -->
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <button class="btn btn-primary" id="btn-share-podiums-story" style="
+                    flex: 1;
+                    font-size: 13px;
+                    font-weight: 800;
+                    padding: 11px 16px;
+                    background: linear-gradient(135deg, #E1306C, #C13584, #833AB4);
+                    border: none;
+                    box-shadow: 0 4px 14px rgba(193, 53, 132, 0.35);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                ">
+                    <span>📸</span> Compartilhar Story
+                </button>
+                <button class="btn btn-secondary" id="btn-share-podiums-whatsapp" style="
+                    font-size: 13px;
+                    font-weight: 700;
+                    padding: 11px 16px;
+                    border-color: #25d366;
+                    color: #15803d;
+                    background: #f0fdf4;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                ">
+                    <span>💬</span> WhatsApp
+                </button>
+            </div>
+
             <p style="font-size: 12px; color: var(--color-grey-text); margin-bottom: 14px;">
                 Galeria oficial com os 3 melhores colocados de cada categoria na <strong>Temporada ${selectedYear}</strong> (pontuações consolidadas até 30/11):
             </p>
@@ -793,7 +850,6 @@ function renderPodiumsTab(container) {
                                 const is2 = p.position === 2;
                                 const is3 = p.position === 3;
                                 const badge = is1 ? '🥇' : (is2 ? '🥈' : '🥉');
-                                const borderColor = is1 ? '#f59e0b' : (is2 ? '#94a3b8' : '#cd7f32');
                                 const bgStyle = is1 
                                     ? 'background: linear-gradient(135deg, rgba(254, 243, 199, 0.4), #ffffff); border: 2px solid #f59e0b;' 
                                     : 'background: #ffffff; border: 1px solid var(--color-grey-border);';
@@ -851,6 +907,25 @@ function renderPodiumsTab(container) {
             }).join('')}
         </div>
     `;
+
+    document.getElementById('btn-share-podiums-story')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-share-podiums-story');
+        btn.disabled = true;
+        btn.innerHTML = `<span>⏳</span> Gerando Story...`;
+        try {
+            await handleSharePodiumsImage(c, selectedYear);
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao gerar Story: " + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<span>📸</span> Compartilhar Story`;
+        }
+    });
+
+    document.getElementById('btn-share-podiums-whatsapp')?.addEventListener('click', () => {
+        handleSharePodiumsWhatsApp(c, selectedYear);
+    });
 }
 
 /* ====================================================================
@@ -865,6 +940,38 @@ function renderRecordsTab(container) {
 
     container.innerHTML = `
         <div>
+            <!-- Barra de Ações Compartilháveis -->
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <button class="btn btn-primary" id="btn-share-records-story" style="
+                    flex: 1;
+                    font-size: 13px;
+                    font-weight: 800;
+                    padding: 11px 16px;
+                    background: linear-gradient(135deg, #E1306C, #C13584, #833AB4);
+                    border: none;
+                    box-shadow: 0 4px 14px rgba(193, 53, 132, 0.35);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                ">
+                    <span>📸</span> Compartilhar Story
+                </button>
+                <button class="btn btn-secondary" id="btn-share-records-whatsapp" style="
+                    font-size: 13px;
+                    font-weight: 700;
+                    padding: 11px 16px;
+                    border-color: #25d366;
+                    color: #15803d;
+                    background: #f0fdf4;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                ">
+                    <span>💬</span> WhatsApp
+                </button>
+            </div>
+
             <!-- Resumo Geral em Números -->
             <div class="card" style="background: linear-gradient(135deg, rgba(192, 81, 49, 0.08), rgba(245, 158, 11, 0.08)); border: 1.5px solid rgba(192, 81, 49, 0.3); margin-bottom: 16px;">
                 <div style="font-size: 13px; font-weight: 800; color: var(--color-saibro); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
@@ -982,4 +1089,536 @@ function renderRecordsTab(container) {
             </div>
         </div>
     `;
+
+    document.getElementById('btn-share-records-story')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-share-records-story');
+        btn.disabled = true;
+        btn.innerHTML = `<span>⏳</span> Gerando Story...`;
+        try {
+            await handleShareRecordsImage(c, selectedYear);
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao gerar Story: " + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<span>📸</span> Compartilhar Story`;
+        }
+    });
+
+    document.getElementById('btn-share-records-whatsapp')?.addEventListener('click', () => {
+        handleShareRecordsWhatsApp(c, selectedYear);
+    });
 }
+
+/* ====================================================================
+   GERAÇÃO DE STORY: CAMPEÕES & PÓDIOS (1080x1920)
+   ==================================================================== */
+async function handleSharePodiumsImage(c, year) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1920;
+    const ctx = canvas.getContext('2d');
+
+    // 1. Fundo Gradiente Luxury Dark
+    const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
+    grad.addColorStop(0, '#150d0a');
+    grad.addColorStop(0.35, '#221108');
+    grad.addColorStop(1, '#0c101d');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1080, 1920);
+
+    // 2. Brilho radial dourado
+    const radial = ctx.createRadialGradient(900, 200, 20, 900, 200, 650);
+    radial.addColorStop(0, 'rgba(245, 158, 11, 0.4)');
+    radial.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = radial;
+    ctx.fillRect(0, 0, 1080, 1920);
+
+    // 3. Moldura elegante dourada
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+    ctx.lineWidth = 4;
+    roundRect(ctx, 40, 40, 1000, 1840, 28, false, true);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, 48, 48, 984, 1824, 22, false, true);
+
+    // 4. Logo Oficial Montreal Tênis Clube
+    ctx.textAlign = 'center';
+    let logoDrawn = false;
+    try {
+        const logo = await loadCanvasImage('./assets/logo_montreal_branco.png');
+        if (logo && logo.width > 0) {
+            const h = 105;
+            const w = (logo.width / logo.height) * h;
+            ctx.drawImage(logo, 540 - (w / 2), 85, w, h);
+            logoDrawn = true;
+        }
+    } catch (e) {}
+
+    if (!logoDrawn) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 36px "Hanken Grotesk", sans-serif';
+        ctx.fillText('🎾 MONTREAL TÊNIS CLUBE', 540, 150);
+    }
+
+    // 5. Badge e Título
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
+    roundRect(ctx, 230, 225, 620, 48, 24, true, false);
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2;
+    roundRect(ctx, 230, 225, 620, 48, 24, false, true);
+
+    ctx.fillStyle = '#fef3c7';
+    ctx.font = '900 26px "Hanken Grotesk", sans-serif';
+    ctx.fillText(`👑 HALL DE CAMPEÕES • TEMPORADA ${year}`, 540, 258);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 24px "Hanken Grotesk", sans-serif';
+    ctx.fillText('Classificação Oficial Consolidada até 30 de Novembro', 540, 310);
+
+    // 6. Categorias & Pódios
+    const podiums = c.podiums || [];
+    const categories = {};
+    podiums.forEach(item => {
+        const key = `${item.gender} • Nível ${item.level_code}`;
+        if (!categories[key]) categories[key] = [];
+        categories[key].push(item);
+    });
+
+    const catKeys = Object.keys(categories);
+    const boxW = 900;
+    const boxX = 90;
+
+    if (catKeys.length === 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        roundRect(ctx, boxX, 500, boxW, 400, 24, true, false);
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = 'bold 32px "Hanken Grotesk", sans-serif';
+        ctx.fillText('Nenhum pódio consolidado para esta temporada.', 540, 700);
+    } else {
+        // Exibe até 3 categorias com layout nobre
+        const displayKeys = catKeys.slice(0, 3);
+        const availableHeight = 1220;
+        const spacing = 26;
+        const catH = Math.min(560, Math.floor((availableHeight - (displayKeys.length - 1) * spacing) / displayKeys.length));
+        const startY = 350;
+
+        displayKeys.forEach((k, catIdx) => {
+            const list = categories[k] || [];
+            const cy = startY + catIdx * (catH + spacing);
+
+            // Box da categoria
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+            roundRect(ctx, boxX, cy, boxW, catH, 20, true, false);
+            ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+            ctx.lineWidth = 2;
+            roundRect(ctx, boxX, cy, boxW, catH, 20, false, true);
+
+            // Cabeçalho da Categoria
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
+            roundRect(ctx, boxX, cy, boxW, 52, 20, true, false);
+            ctx.fillStyle = '#fde68a';
+            ctx.font = '900 24px "Hanken Grotesk", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(`🎾 ${k.toUpperCase()}`, boxX + 24, cy + 35);
+
+            // Linhas dos 3 colocados
+            const rowStartY = cy + 62;
+            const rowH = Math.floor((catH - 74) / 3);
+
+            list.slice(0, 3).forEach((p, pIdx) => {
+                const ry = rowStartY + pIdx * (rowH + 4);
+                const is1 = p.position === 1;
+                const is2 = p.position === 2;
+                const is3 = p.position === 3;
+                const medal = is1 ? '🥇' : (is2 ? '🥈' : '🥉');
+
+                // Fundo do atleta
+                if (is1) {
+                    ctx.fillStyle = 'rgba(245, 158, 11, 0.18)';
+                    roundRect(ctx, boxX + 12, ry, boxW - 24, rowH, 12, true, false);
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 2;
+                    roundRect(ctx, boxX + 12, ry, boxW - 24, rowH, 12, false, true);
+                } else {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+                    roundRect(ctx, boxX + 12, ry, boxW - 24, rowH, 12, true, false);
+                }
+
+                // Medalha
+                ctx.textAlign = 'center';
+                ctx.font = `${Math.min(32, rowH - 14)}px "Hanken Grotesk", sans-serif`;
+                ctx.fillText(medal, boxX + 44, ry + (rowH / 2) + 10);
+
+                // Nome do Atleta
+                ctx.textAlign = 'left';
+                ctx.fillStyle = is1 ? '#ffffff' : '#e2e8f0';
+                ctx.font = `900 ${Math.min(26, rowH - 20)}px "Hanken Grotesk", sans-serif`;
+                const displayName = p.display_name.length > 22 ? p.display_name.substring(0, 20) + '...' : p.display_name;
+                ctx.fillText(displayName, boxX + 80, ry + (rowH / 2) + 2);
+
+                if (is1) {
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.font = 'bold 15px "Hanken Grotesk", sans-serif';
+                    ctx.fillText(`CAMPEÃO ${year} • ${p.total_wins}V`, boxX + 80, ry + (rowH / 2) + 22);
+                } else {
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.font = 'bold 15px "Hanken Grotesk", sans-serif';
+                    ctx.fillText(`${p.position}º Lugar • ${p.total_wins} vitórias`, boxX + 80, ry + (rowH / 2) + 20);
+                }
+
+                // Pontos à direita
+                ctx.textAlign = 'right';
+                ctx.fillStyle = is1 ? '#f59e0b' : '#38bdf8';
+                ctx.font = `900 ${Math.min(30, rowH - 16)}px "Hanken Grotesk", sans-serif`;
+                ctx.fillText(`${p.total_points} pts`, boxX + boxW - 30, ry + (rowH / 2) + 8);
+            });
+        });
+    }
+
+    // 7. Frase de Destaque
+    const quoteY = 1600;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    roundRect(ctx, 100, quoteY, 880, 80, 18, true, false);
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, 100, quoteY, 880, 80, 18, false, true);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fcd34d';
+    ctx.font = 'bold 28px "Hanken Grotesk", sans-serif';
+    ctx.fillText(`✨ "Parabéns aos campeões que dominaram o saibro em ${year}!"`, 540, quoteY + 50);
+
+    // 8. Rodapé Oficial Montreal
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.fillRect(100, 1700, 880, 2);
+
+    try {
+        const imgSymbol = await loadCanvasImage('./assets/logo_simbolo_branco.png');
+        if (imgSymbol) {
+            ctx.drawImage(imgSymbol, 540 - 24, 1720, 48, 48);
+        }
+    } catch (e) {}
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 30px "Hanken Grotesk", sans-serif';
+    ctx.fillText('ranking.montrealtenis.com.br', 540, 1795);
+
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = 'bold 24px "Hanken Grotesk", sans-serif';
+    ctx.fillText('Circuito Oficial de Tênis em Saibro • @montreal.tenisclube', 540, 1835);
+
+    // 9. Exporta para Story / Download
+    const fileName = `campeoes-podios-montreal-${year}.png`;
+    await exportCanvas(
+        canvas,
+        fileName,
+        `Campeões & Pódios Montreal ${year}`,
+        `Confira a galeria de campeões e pódios da Temporada ${year} do Montreal Tênis Clube! 👑🎾`
+    );
+}
+
+function handleSharePodiumsWhatsApp(c, year) {
+    const podiums = c.podiums || [];
+    const categories = {};
+    podiums.forEach(item => {
+        const key = `${item.gender} - Nível ${item.level_code}`;
+        if (!categories[key]) categories[key] = [];
+        categories[key].push(item);
+    });
+
+    let text = `👑 *HALL DE CAMPEÕES & PÓDIOS - TEMPORADA ${year}* 🏆%0A` +
+        `🎾 *Montreal Tênis Clube* (@montreal.tenisclube)%0A%0A`;
+
+    Object.entries(categories).forEach(([cat, list]) => {
+        text += `🏅 *${cat}:*%0A`;
+        list.forEach(p => {
+            const medal = p.position === 1 ? '🥇' : (p.position === 2 ? '🥈' : '🥉');
+            text += `${medal} ${p.position}º ${p.display_name} - ${p.total_points} pts (${p.total_wins}V)%0A`;
+        });
+        text += `%0A`;
+    });
+
+    text += `Confira os pódios e ranking completo: https://ranking.montrealtenis.com.br`;
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+}
+
+/* ====================================================================
+   GERAÇÃO DE STORY: RECORDES & DESTAQUES DO ANO (1080x1920)
+   ==================================================================== */
+async function handleShareRecordsImage(c, year) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1920;
+    const ctx = canvas.getContext('2d');
+
+    const mostActive = c.most_active_player;
+    const topScorer = c.top_scorer;
+    const bestWinrate = c.best_win_rate_player;
+    const topRivalry = c.top_rivalry;
+
+    // 1. Fundo Gradiente Luxury Dark
+    const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
+    grad.addColorStop(0, '#150f0c');
+    grad.addColorStop(0.35, '#26130b');
+    grad.addColorStop(1, '#0c101c');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1080, 1920);
+
+    // 2. Brilhos Radiais
+    const glow1 = ctx.createRadialGradient(920, 260, 20, 920, 260, 600);
+    glow1.addColorStop(0, 'rgba(192, 81, 49, 0.4)');
+    glow1.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow1;
+    ctx.fillRect(0, 0, 1080, 1920);
+
+    // 3. Moldura Inset
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+    ctx.lineWidth = 4;
+    roundRect(ctx, 40, 40, 1000, 1840, 28, false, true);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, 48, 48, 984, 1824, 22, false, true);
+
+    // 4. Logo Oficial Montreal
+    ctx.textAlign = 'center';
+    let logoDrawn = false;
+    try {
+        const logo = await loadCanvasImage('./assets/logo_montreal_branco.png');
+        if (logo && logo.width > 0) {
+            const h = 105;
+            const w = (logo.width / logo.height) * h;
+            ctx.drawImage(logo, 540 - (w / 2), 85, w, h);
+            logoDrawn = true;
+        }
+    } catch (e) {}
+
+    if (!logoDrawn) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 36px "Hanken Grotesk", sans-serif';
+        ctx.fillText('🎾 MONTREAL TÊNIS CLUBE', 540, 150);
+    }
+
+    // 5. Badge & Títulos
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
+    roundRect(ctx, 230, 225, 620, 48, 24, true, false);
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2;
+    roundRect(ctx, 230, 225, 620, 48, 24, false, true);
+
+    ctx.fillStyle = '#fef3c7';
+    ctx.font = '900 26px "Hanken Grotesk", sans-serif';
+    ctx.fillText(`📊 RECORDES & DESTAQUES • TEMPORADA ${year}`, 540, 258);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 48px "Hanken Grotesk", sans-serif';
+    ctx.fillText('OS GIGANTES DA TEMPORADA', 540, 325);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 24px "Hanken Grotesk", sans-serif';
+    ctx.fillText('Superlativos Oficiais & Balanço Geral do Saibro', 540, 365);
+
+    // 6. Balanço Geral em 3 Colunas
+    const sumW = 900;
+    const sumX = 90;
+    const sumY = 405;
+    const sumH = 120;
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    roundRect(ctx, sumX, sumY, sumW, sumH, 20, true, false);
+    ctx.strokeStyle = 'rgba(192, 81, 49, 0.4)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, sumX, sumY, sumW, sumH, 20, false, true);
+
+    const cols = [
+        { label: 'PARTIDAS OFICIAIS', val: `${c.total_games || 0}`, color: 'var(--color-saibro)' || '#c05131', x: sumX + sumW * 0.17 },
+        { label: 'TENISTAS ATIVOS', val: `${c.total_players || 0}`, color: '#ffffff', x: sumX + sumW * 0.50 },
+        { label: 'GAMES DISPUTADOS', val: `${(c.total_games || 0) * 12}`, color: '#f59e0b', x: sumX + sumW * 0.83 }
+    ];
+
+    cols.forEach(cItem => {
+        ctx.fillStyle = cItem.color === 'var(--color-saibro)' ? '#f97316' : cItem.color;
+        ctx.font = '900 46px "Hanken Grotesk", sans-serif';
+        ctx.fillText(cItem.val, cItem.x, sumY + 60);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 18px "Hanken Grotesk", sans-serif';
+        ctx.fillText(cItem.label, cItem.x, sumY + 95);
+    });
+
+    // 7. Cards de Superlativos (4 Destaques)
+    const cardW = 900;
+    const cardX = 90;
+    const cardH = 220;
+    const cardStartY = 555;
+    const cardGap = 24;
+
+    const cardsData = [
+        {
+            icon: '🔥',
+            title: 'O FOMINHA DO ANO',
+            sub: 'Quem mais entrou em quadra para disputar partidas oficiais',
+            color: '#f97316',
+            accentBg: 'rgba(249, 115, 22, 0.15)',
+            border: '#f97316',
+            player: mostActive ? mostActive.display_name : 'Sem registros',
+            category: mostActive ? `Nível ${mostActive.current_level} • ${mostActive.gender}` : '',
+            statVal: mostActive ? `${mostActive.total_games} jogos` : '-',
+            statSub: mostActive ? `${mostActive.total_wins} vitórias conquistadas` : ''
+        },
+        {
+            icon: '⚡',
+            title: 'MAIOR PONTUADOR GERAL',
+            sub: 'O atleta que acumulou a maior quantidade de pontos no ano',
+            color: '#f59e0b',
+            accentBg: 'rgba(245, 158, 11, 0.15)',
+            border: '#f59e0b',
+            player: topScorer ? topScorer.display_name : 'Sem registros',
+            category: topScorer ? `Nível ${topScorer.current_level} • ${topScorer.gender}` : '',
+            statVal: topScorer ? `${topScorer.total_points} pts` : '-',
+            statSub: topScorer ? `em ${topScorer.total_games} partidas disputadas` : ''
+        },
+        {
+            icon: '🎯',
+            title: 'MAIS EFICIENTE (APROVEITAMENTO)',
+            sub: 'Maior taxa de vitórias da temporada (mínimo de 2 jogos)',
+            color: '#22c55e',
+            accentBg: 'rgba(34, 197, 94, 0.15)',
+            border: '#22c55e',
+            player: bestWinrate ? bestWinrate.display_name : 'Sem registros',
+            category: bestWinrate ? `Nível ${bestWinrate.current_level} • ${bestWinrate.gender}` : '',
+            statVal: bestWinrate ? `${bestWinrate.win_rate}%` : '-',
+            statSub: bestWinrate ? `${bestWinrate.total_wins}V em ${bestWinrate.total_games} jogos` : ''
+        },
+        {
+            icon: '⚔️',
+            title: 'MAIOR DUELO DO ANO (RIVALIDADE)',
+            sub: 'A dupla de atletas que mais protagonizou confrontos no saibro',
+            color: '#a855f7',
+            accentBg: 'rgba(168, 85, 247, 0.15)',
+            border: '#a855f7',
+            player: (topRivalry && topRivalry.player1_name) ? `${topRivalry.player1_name.split(' ')[0]} vs ${topRivalry.player2_name.split(' ')[0]}` : 'Sem registros',
+            category: 'O Grande Clássico do Clube',
+            statVal: (topRivalry && topRivalry.matches_count) ? `${topRivalry.matches_count} jogos` : '-',
+            statSub: 'confrontos diretos emocionantes'
+        }
+    ];
+
+    cardsData.forEach((cd, idx) => {
+        const cy = cardStartY + idx * (cardH + cardGap);
+
+        // Card Fundo
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+        roundRect(ctx, cardX, cy, cardW, cardH, 20, true, false);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 2;
+        roundRect(ctx, cardX, cy, cardW, cardH, 20, false, true);
+
+        // Barra lateral colorida
+        ctx.fillStyle = cd.color;
+        roundRect(ctx, cardX, cy + 16, 6, cardH - 32, 3, true, false);
+
+        // Ícone & Título
+        ctx.textAlign = 'left';
+        ctx.font = '32px "Hanken Grotesk", sans-serif';
+        ctx.fillText(cd.icon, cardX + 28, cy + 50);
+
+        ctx.fillStyle = cd.color;
+        ctx.font = '900 24px "Hanken Grotesk", sans-serif';
+        ctx.fillText(cd.title, cardX + 72, cy + 44);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 16px "Hanken Grotesk", sans-serif';
+        ctx.fillText(cd.sub, cardX + 72, cy + 70);
+
+        // Box de Destaque Interno
+        const innerY = cy + 92;
+        const innerH = 108;
+        ctx.fillStyle = cd.accentBg;
+        roundRect(ctx, cardX + 24, innerY, cardW - 48, innerH, 14, true, false);
+        ctx.strokeStyle = cd.border;
+        ctx.lineWidth = 1.5;
+        roundRect(ctx, cardX + 24, innerY, cardW - 48, innerH, 14, false, true);
+
+        // Nome do Atleta
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 32px "Hanken Grotesk", sans-serif';
+        ctx.fillText(cd.player, cardX + 44, innerY + 50);
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = 'bold 18px "Hanken Grotesk", sans-serif';
+        ctx.fillText(cd.category, cardX + 44, innerY + 84);
+
+        // Estatística à direita
+        ctx.textAlign = 'right';
+        ctx.fillStyle = cd.color;
+        ctx.font = '900 42px "Hanken Grotesk", sans-serif';
+        ctx.fillText(cd.statVal, cardX + cardW - 50, innerY + 54);
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = 'bold 16px "Hanken Grotesk", sans-serif';
+        ctx.fillText(cd.statSub, cardX + cardW - 50, innerY + 86);
+    });
+
+    // 8. Frase de Destaque
+    const quoteY = 1555;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    roundRect(ctx, 100, quoteY, 880, 80, 18, true, false);
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, 100, quoteY, 880, 80, 18, false, true);
+
+    ctx.fillStyle = '#fcd34d';
+    ctx.font = 'bold 28px "Hanken Grotesk", sans-serif';
+    ctx.fillText(`✨ "A glória do tênis se constrói em cada ponto disputado!"`, 540, quoteY + 50);
+
+    // 9. Rodapé Oficial
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.fillRect(100, 1680, 880, 2);
+
+    try {
+        const imgSymbol = await loadCanvasImage('./assets/logo_simbolo_branco.png');
+        if (imgSymbol) {
+            ctx.drawImage(imgSymbol, 540 - 24, 1705, 48, 48);
+        }
+    } catch (e) {}
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 30px "Hanken Grotesk", sans-serif';
+    ctx.fillText('ranking.montrealtenis.com.br', 540, 1780);
+
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = 'bold 24px "Hanken Grotesk", sans-serif';
+    ctx.fillText('Circuito Oficial de Tênis em Saibro • @montreal.tenisclube', 540, 1820);
+
+    // 10. Exporta Story / Download
+    const fileName = `recordes-montreal-${year}.png`;
+    await exportCanvas(
+        canvas,
+        fileName,
+        `Recordes do Ano Montreal ${year}`,
+        `Confira os recordes e grandes destaques da Temporada ${year} do Montreal Tênis Clube! ⚡🎾`
+    );
+}
+
+function handleShareRecordsWhatsApp(c, year) {
+    const mostActive = c.most_active_player;
+    const topScorer = c.top_scorer;
+    const bestWinrate = c.best_win_rate_player;
+    const topRivalry = c.top_rivalry;
+
+    let text = `📊 *RECORDES DO ANO ${year} - MONTREAL TÊNIS CLUBE* 🎾🏆%0A%0A` +
+        `🎾 *${c.total_games || 0}* partidas oficiais disputadas%0A` +
+        `👥 *${c.total_players || 0}* tenistas ativos em quadra%0A%0A` +
+        `🔥 *Fominha do Ano:* ${mostActive ? `${mostActive.display_name} (${mostActive.total_games} jogos)` : 'N/A'}%0A` +
+        `⚡ *Maior Pontuador:* ${topScorer ? `${topScorer.display_name} (${topScorer.total_points} pts)` : 'N/A'}%0A` +
+        `🎯 *Mais Eficiente:* ${bestWinrate ? `${bestWinrate.display_name} (${bestWinrate.win_rate}% vitórias)` : 'N/A'}%0A` +
+        `⚔️ *Maior Duelo:* ${(topRivalry && topRivalry.player1_name) ? `${topRivalry.player1_name.split(' ')[0]} vs ${topRivalry.player2_name.split(' ')[0]} (${topRivalry.matches_count} jogos)` : 'N/A'}%0A%0A` +
+        `Confira todos os números em: https://ranking.montrealtenis.com.br`;
+
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+}
+
