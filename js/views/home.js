@@ -48,12 +48,12 @@ export async function renderHome() {
                         <h2 style="font-size: var(--font-size-xl); font-weight: 800; margin-top: 2px; color: var(--color-preto);">${user.display_name}</h2>
                         <div style="display: flex; gap: var(--space-xs); margin-top: var(--space-xs);">
                             <span class="badge badge-level-${user.current_level}">Nível ${user.current_level}</span>
-                            <span class="badge badge-success">Posição #${user.rank_position}</span>
+                            <span class="badge badge-success">Posição #${user.rank_position} (${new Date().getFullYear()})</span>
                         </div>
                     </div>
                     <div style="text-align: right;">
                         <span style="font-size: var(--font-size-2xl); font-weight: 800; color: var(--color-saibro);">${user.total_points}</span>
-                        <span style="display: block; font-size: var(--font-size-xs); color: var(--color-grey-text);">Pontos</span>
+                        <span style="display: block; font-size: var(--font-size-xs); color: var(--color-grey-text);">Pontos (${new Date().getFullYear()})</span>
                     </div>
                 </div>
             </div>

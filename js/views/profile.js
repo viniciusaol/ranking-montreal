@@ -31,14 +31,14 @@ export async function renderProfile() {
                 <div style="display: flex; justify-content: center; gap: var(--space-xs); margin-bottom: var(--space-md); flex-wrap: wrap;">
                     <span class="badge badge-level-${user.current_level}">Nível ${user.current_level}</span>
                     <span class="badge" style="background: rgba(0,0,0,0.06); color: var(--color-preto); font-weight: 700;">🎾 ${user.gender || 'Masculino'}</span>
-                    <span class="badge badge-success">Ranking #${user.rank_position}</span>
+                    <span class="badge badge-success">Ranking #${user.rank_position} (${new Date().getFullYear()})</span>
                     ${user.is_admin ? `<span class="badge badge-danger">Admin</span>` : ''}
                 </div>
 
                 <div style="display: flex; justify-content: space-around; background-color: var(--color-bg-input); padding: var(--space-sm); border-radius: var(--radius-md); border: 1px solid var(--color-border);">
                     <div>
                         <span style="font-size: var(--font-size-lg); font-weight: 800; color: var(--color-primary-yellow);">${user.total_points}</span>
-                        <span style="display: block; font-size: 11px; color: var(--color-text-muted);">Pontos</span>
+                        <span style="display: block; font-size: 11px; color: var(--color-text-muted);">Pontos (${new Date().getFullYear()})</span>
                     </div>
                     <div>
                         <span style="font-size: var(--font-size-lg); font-weight: 800; color: var(--color-text-primary);">${user.total_games}</span>
