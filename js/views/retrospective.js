@@ -373,7 +373,7 @@ function renderStoryTab(container, user) {
                         ranking.montrealtenis.com.br
                     </div>
                     <div style="font-size: 8px; color: #94a3b8; margin-top: 1px;">
-                        @montrealtenis • Curitiba/PR
+                        @montreal.tenisclube • Curitiba/PR
                     </div>
                 </div>
             </div>
@@ -631,7 +631,7 @@ async function handleShareStoryImage(p, year) {
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = 'bold 24px "Hanken Grotesk", sans-serif';
-    ctx.fillText('Acesse e dispute o ranking oficial do clube • @montrealtenis', 540, 1785);
+    ctx.fillText('Acesse e dispute o ranking oficial do clube • @montreal.tenisclube', 540, 1785);
 
     // 12. Compartilhamento Nativo ou Download
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
