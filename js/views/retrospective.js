@@ -366,7 +366,7 @@ function renderStoryTab(container, user) {
                 <div style="position: relative; z-index: 2; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px; margin-top: 6px; display: flex; align-items: center; justify-content: space-between; padding-left: 4px; padding-right: 4px;">
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <img src="./assets/logo_simbolo_branco.png" alt="Montreal" style="width: 20px; height: 20px; object-fit: contain; opacity: 0.9;">
-                        <span style="font-size: 9px; font-weight: 700; color: #e2e8f0; letter-spacing: 0.5px;">ranking.montrealtenis.com.br</span>
+                        <span style="font-size: 9px; font-weight: 700; color: #e2e8f0; letter-spacing: 0.5px;">www.montrealtenis.com.br</span>
                     </div>
                     <div style="font-size: 8.5px; color: #f59e0b; font-weight: 800;">
                         @montreal.tenisclube
@@ -665,7 +665,7 @@ async function handleShareStoryImage(p, year) {
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 30px "Hanken Grotesk", sans-serif';
-    ctx.fillText('ranking.montrealtenis.com.br', 540, 1775);
+    ctx.fillText('www.montrealtenis.com.br', 540, 1775);
 
     ctx.fillStyle = '#f59e0b';
     ctx.font = 'bold 24px "Hanken Grotesk", sans-serif';
@@ -740,7 +740,7 @@ function handleShareWhatsApp(p, year) {
         `📊 *Pontos:* ${p.total_points || 0} pts (Posição #${p.rank_position || 1})%0A` +
         `🎾 *Partidas:* ${p.total_games || 0} (${p.total_wins || 0}V • ${p.total_losses || 0}D)%0A` +
         `⚡ *Aproveitamento:* ${p.win_rate || 0}% de vitórias%0A%0A` +
-        `Confira o ranking completo e venha jogar: https://ranking.montrealtenis.com.br`;
+        `Confira o ranking completo e venha jogar: https://www.montrealtenis.com.br`;
 
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
 }
@@ -752,7 +752,7 @@ function handleCopyText(p, year) {
         `📊 Pontuação: ${p.total_points || 0} pts (Posição #${p.rank_position || 1})\n` +
         `🎾 Partidas: ${p.total_games || 0} jogos (${p.total_wins || 0} vitórias)\n` +
         `⚡ Aproveitamento: ${p.win_rate || 0}%\n\n` +
-        `Acesse o ranking da Montreal: https://ranking.montrealtenis.com.br`;
+        `Acesse a Montreal: https://www.montrealtenis.com.br`;
 
     navigator.clipboard.writeText(text).then(() => {
         alert("📋 Resumo copiado para a área de transferência!");
@@ -1303,7 +1303,7 @@ async function handleSharePodiumsImage(c, year) {
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 30px "Hanken Grotesk", sans-serif';
-    ctx.fillText('ranking.montrealtenis.com.br', 540, 1795);
+    ctx.fillText('www.montrealtenis.com.br', 540, 1795);
 
     ctx.fillStyle = '#f59e0b';
     ctx.font = 'bold 24px "Hanken Grotesk", sans-serif';
@@ -1340,7 +1340,7 @@ function handleSharePodiumsWhatsApp(c, year) {
         text += `%0A`;
     });
 
-    text += `Confira os pódios e ranking completo: https://ranking.montrealtenis.com.br`;
+    text += `Confira os pódios e ranking completo: https://www.montrealtenis.com.br`;
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
 }
 
@@ -1588,7 +1588,7 @@ async function handleShareRecordsImage(c, year) {
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 30px "Hanken Grotesk", sans-serif';
-    ctx.fillText('ranking.montrealtenis.com.br', 540, 1780);
+    ctx.fillText('www.montrealtenis.com.br', 540, 1780);
 
     ctx.fillStyle = '#f59e0b';
     ctx.font = 'bold 24px "Hanken Grotesk", sans-serif';
@@ -1617,7 +1617,7 @@ function handleShareRecordsWhatsApp(c, year) {
         `⚡ *Maior Pontuador:* ${topScorer ? `${topScorer.display_name} (${topScorer.total_points} pts)` : 'N/A'}%0A` +
         `🎯 *Mais Eficiente:* ${bestWinrate ? `${bestWinrate.display_name} (${bestWinrate.win_rate}% vitórias)` : 'N/A'}%0A` +
         `⚔️ *Maior Duelo:* ${(topRivalry && topRivalry.player1_name) ? `${topRivalry.player1_name.split(' ')[0]} vs ${topRivalry.player2_name.split(' ')[0]} (${topRivalry.matches_count} jogos)` : 'N/A'}%0A%0A` +
-        `Confira todos os números em: https://ranking.montrealtenis.com.br`;
+        `Confira todos os números em: https://www.montrealtenis.com.br`;
 
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
 }
