@@ -222,3 +222,81 @@ Partida fechada e confirmada. Boa sorte aos tenistas! 🎾🔥`;
     return { success: notificationStatus === 'sent', status: notificationStatus };
 }
 
+/**
+ * Envia notificação ao grupo de WhatsApp anunciando o lançamento da Retrospectiva Oficial da Temporada.
+ * Enviado no dia 01/12 (ou disparado manualmente pelo Administrador).
+ */
+export async function notifyRetrospectiveRelease(year = new Date().getFullYear()) {
+    if (!CONFIG.NOTIFICATIONS || !CONFIG.NOTIFICATIONS.ENABLED) {
+        return { success: false, reason: 'Notifications disabled' };
+    }
+
+    const messageText = 
+`🎾🏆 *RETROSPECTIVA ${year} LIBERADA NO RANKING MONTREAL!* 🏆🎾
+
+A temporada oficial de *${year}* encerrou em 30 de Novembro e os números finais estão consolidados no saibro da Montreal! 🔥
+
+✨ *O que você encontra no aplicativo:*
+🥇 *Hall de Campeões & Pódios:* Conheça os atletas que conquistaram o 1º, 2º e 3º lugar em cada categoria e nível!
+📊 *Recordes do Ano:* Descubra quem foi o Fominha do Ano, o Maior Pontuador, o Mais Eficiente e os Grandes Duelos do clube!
+📸 *Seu Story de Atleta (Estilo Spotify Wrapped):* Veja quantas partidas você disputou, seus pontos, suas vitórias, seu maior rival e gere seu card exclusivo para postar nos Stories do Instagram!
+
+👉 *Acesse sua Retrospectiva agora mesmo:*
+🔗 https://www.montrealtenis.com.br
+
+Compartilhe seu Story e marque a Montreal: *@montreal.tenisclube* 🎾✨`;
+
+    const payload = {
+        event: 'retrospective_released',
+        season_year: year,
+        target_group_jid: CONFIG.NOTIFICATIONS.RANKING_GROUP_JID,
+        formatted_message: messageText
+    };
+
+    let notificationStatus = 'pending';
+
+    try {
+        if (CONFIG.NOTIFICATIONS.N8N_WEBHOOK_URL) {
+            await fetch(CONFIG.NOTIFICATIONS.N8N_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            notificationStatus = 'sent_via_n8n';
+        } else if (CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL && CONFIG.NOTIFICATIONS.UAZAPI_TOKEN && CONFIG.NOTIFICATIONS.RANKING_GROUP_JID) {
+            const endpoint = `${CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL.replace(/\/+$/, '')}/send/text`;
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'token': CONFIG.NOTIFICATIONS.UAZAPI_TOKEN
+                },
+                body: JSON.stringify({
+                    number: CONFIG.NOTIFICATIONS.RANKING_GROUP_JID,
+                    text: messageText
+                })
+            });
+            notificationStatus = resp.ok ? 'sent' : 'failed';
+        }
+    } catch (err) {
+        console.error('Erro ao notificar retrospectiva no WhatsApp:', err);
+        notificationStatus = 'error';
+    }
+
+    try {
+        await db.from('mt_game_notifications').insert({
+            event_type: 'retrospective_released',
+            payload: payload,
+            status: notificationStatus,
+            sent_at: (notificationStatus === 'sent' || notificationStatus === 'sent_via_n8n') ? new Date().toISOString() : null
+        });
+    } catch (dbErr) {
+        console.warn('Erro ao registrar log de retrospectiva no banco:', dbErr);
+    }
+
+    return { 
+        success: (notificationStatus === 'sent' || notificationStatus === 'sent_via_n8n'), 
+        status: notificationStatus 
+    };
+}
+

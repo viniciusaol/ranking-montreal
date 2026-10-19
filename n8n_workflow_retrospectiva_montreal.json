@@ -1,0 +1,150 @@
+{
+  "name": "Montreal Ranking - Lançamento da Retrospectiva Anual no WhatsApp (01/12)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 1 12 *"
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-dec1",
+      "name": "Disparo Automático 01/12 às 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "retrospectiva-anual-montreal",
+        "options": {}
+      },
+      "id": "node-webhook-retro",
+      "name": "Webhook - Disparo Manual da Retrospectiva",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        420
+      ],
+      "webhookId": "montreal-retrospective-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Define o ano da temporada encerrada em 30/11\nconst inputData = $input.first()?.json?.body || $input.first()?.json || {};\nconst currentYear = new Date().getFullYear();\nconst seasonYear = inputData.season_year || currentYear;\n\nconst message = `🎾🏆 *RETROSPECTIVA ${seasonYear} LIBERADA NO RANKING MONTREAL!* 🏆🎾\\n\\nA temporada oficial de *${seasonYear}* encerrou em 30 de Novembro e os números finais estão consolidados no saibro da Montreal! 🔥\\n\\n✨ *O que você encontra no aplicativo:*\\n🥇 *Hall de Campeões & Pódios:* Conheça os atletas que conquistaram o 1º, 2º e 3º lugar em cada categoria e nível!\\n📊 *Recordes do Ano:* Descubra quem foi o Fominha do Ano, o Maior Pontuador, o Mais Eficiente e os Grandes Duelos do clube!\\n📸 *Seu Story de Atleta (Estilo Spotify Wrapped):* Veja quantas partidas você disputou, seus pontos, suas vitórias, seu maior rival e gere seu card exclusivo para postar nos Stories do Instagram!\\n\\n👉 *Acesse sua Retrospectiva agora mesmo:*\\n🔗 https://www.montrealtenis.com.br\\n\\nCompartilhe seu Story e marque a Montreal: *@montreal.tenisclube* 🎾✨`;\n\nreturn [{\n  json: {\n    number: \"120363428928893345@g.us\",\n    text: message,\n    season_year: seasonYear\n  }\n}];"
+      },
+      "id": "node-format-message",
+      "name": "Formatar Mensagem Retrospectiva",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://montrealtenis.uazapi.com/send/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "4a87a0fd-84b0-404d-83e3-de5d2d7d0022"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"text\": \"{{ $json.text }}\"\n}",
+        "options": {}
+      },
+      "id": "node-uazapi-send",
+      "name": "Enviar no Grupo via Uazapi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        740,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Aviso da Retrospectiva enviado ao grupo do Ranking Montreal com sucesso!\",\n  \"group_jid\": \"120363428928893345@g.us\"\n}",
+        "options": {}
+      },
+      "id": "node-respond-webhook",
+      "name": "Responder Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1000,
+        320
+      ]
+    }
+  ],
+  "connections": {
+    "Disparo Automático 01/12 às 09:00": {
+      "main": [
+        [
+          {
+            "node": "Formatar Mensagem Retrospectiva",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Disparo Manual da Retrospectiva": {
+      "main": [
+        [
+          {
+            "node": "Formatar Mensagem Retrospectiva",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Mensagem Retrospectiva": {
+      "main": [
+        [
+          {
+            "node": "Enviar no Grupo via Uazapi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar no Grupo via Uazapi": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

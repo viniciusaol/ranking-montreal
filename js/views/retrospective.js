@@ -1,13 +1,10 @@
-/* ====================================================================
-   MONTREAL TÊNIS CLUBE - RETROSPECTIVA ANUAL & STORY INSTAGRAM
-   ==================================================================== */
-
 import { state } from '../state.js';
 import { callRPC } from '../supabase.js';
-import { getInitials, getCurrentSeasonYear } from '../utils.js?v=1.5.7';
+import { getInitials, getCurrentSeasonYear, isRetrospectiveAvailable, getLatestAvailableRetrospectiveYear } from '../utils.js?v=1.6.5';
+import { notifyRetrospectiveRelease } from '../notifications.js';
 
 let currentTab = 'story'; // 'story' | 'podiums' | 'records'
-let selectedYear = getCurrentSeasonYear();
+let selectedYear = getLatestAvailableRetrospectiveYear();
 let availableSeasons = [];
 let clubData = null;
 let playerData = null;
@@ -24,7 +21,7 @@ export async function renderRetrospective(params = {}) {
     if (params.year) {
         selectedYear = parseInt(params.year, 10);
     } else {
-        selectedYear = getCurrentSeasonYear();
+        selectedYear = getLatestAvailableRetrospectiveYear();
     }
 
     // Busca temporadas disponíveis
@@ -33,17 +30,21 @@ export async function renderRetrospective(params = {}) {
         if (seasons.length > 0) {
             availableSeasons = seasons;
         } else {
+            const currY = getCurrentSeasonYear();
             availableSeasons = [
-                { season_year: selectedYear, is_current: true },
-                { season_year: selectedYear - 1, is_current: false }
+                { season_year: currY, is_current: true },
+                { season_year: currY - 1, is_current: false }
             ];
         }
     } catch (e) {
+        const currY = getCurrentSeasonYear();
         availableSeasons = [
-            { season_year: selectedYear, is_current: true },
-            { season_year: selectedYear - 1, is_current: false }
+            { season_year: currY, is_current: true },
+            { season_year: currY - 1, is_current: false }
         ];
     }
+
+    const isSeasonClosed = isRetrospectiveAvailable(selectedYear);
 
     container.innerHTML = `
         <div class="view-container active" style="padding-bottom: 90px;">
@@ -56,14 +57,36 @@ export async function renderRetrospective(params = {}) {
                 <div style="display: flex; align-items: center; gap: 6px; background: #ffffff; padding: 4px 10px; border-radius: var(--radius-md); border: 1.5px solid var(--color-saibro); box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
                     <span style="font-size: 13px;">📅</span>
                     <select id="select-retro-season" style="border: none; background: transparent; font-size: 13px; font-weight: 800; color: var(--color-saibro); cursor: pointer; outline: none;">
-                        ${availableSeasons.map(s => `
-                            <option value="${s.season_year}" ${s.season_year === selectedYear ? 'selected' : ''}>
-                                Temporada ${s.season_year} ${s.is_current ? '(Atual)' : '(Histórico)'}
-                            </option>
-                        `).join('')}
+                        ${availableSeasons.map(s => {
+                            const isAvail = isRetrospectiveAvailable(s.season_year);
+                            return `
+                                <option value="${s.season_year}" ${s.season_year === selectedYear ? 'selected' : ''}>
+                                    Temporada ${s.season_year} ${isAvail ? '(Consolidada)' : '(Em andamento • Libera 01/12) 🔒'}
+                                </option>
+                            `;
+                        }).join('')}
                     </select>
                 </div>
             </div>
+
+            <!-- Painel Administrativo de Disparo WhatsApp -->
+            ${user.is_admin ? `
+                <div class="card" style="background: rgba(245, 158, 11, 0.08); border: 1.5px solid #f59e0b; margin-bottom: 14px; padding: 12px 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <div style="font-weight: 800; font-size: 13px; color: #b45309; display: flex; align-items: center; gap: 6px;">
+                                <span>👑</span> Modo Administrador Montreal
+                            </div>
+                            <div style="font-size: 11px; color: var(--color-grey-text); margin-top: 1px;">
+                                ${isSeasonClosed ? `Retrospectiva de ${selectedYear} oficial e consolidada.` : `Temporada ${selectedYear} em andamento (liberação oficial aos atletas em 01/12).`}
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" id="btn-admin-broadcast-whatsapp" style="font-size: 12px; font-weight: 800; padding: 8px 14px; background: #25d366; border: none; box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3); display: flex; align-items: center; gap: 6px;">
+                            <span>📢</span> Avisar no Grupo WhatsApp
+                        </button>
+                    </div>
+                </div>
+            ` : ''}
 
             <!-- Título Principal -->
             <div style="margin-bottom: 16px;">
@@ -73,13 +96,16 @@ export async function renderRetrospective(params = {}) {
                         Retrospectiva ${selectedYear}
                     </h2>
                 </div>
-                <p style="font-size: var(--font-size-xs); color: var(--color-grey-text); line-height: 1.4;">
-                    Resumo oficial de <strong>01/01 a 30/11/${selectedYear}</strong>: campeões, superlativos e seu Story para o Instagram!
+                <p id="retro-header-subtitle" style="font-size: var(--font-size-xs); color: var(--color-grey-text); line-height: 1.4;">
+                    ${isSeasonClosed 
+                        ? `Resumo oficial de <strong>01/01 a 30/11/${selectedYear}</strong>: campeões, superlativos e seu Story para o Instagram!`
+                        : `A temporada de ${selectedYear} fecha em 30/11. A retrospectiva oficial será liberada em <strong>01/12/${selectedYear}</strong>!`
+                    }
                 </p>
             </div>
 
-            <!-- Segmented Tabs -->
-            <div class="ranking-tabs" style="margin-bottom: 16px;">
+            <!-- Segmented Tabs (Visíveis somente quando liberado) -->
+            <div class="ranking-tabs" id="retro-segmented-tabs" style="margin-bottom: 16px; ${isSeasonClosed ? '' : 'display: none;'}">
                 <button class="tab-btn ${currentTab === 'story' ? 'active' : ''}" id="tab-btn-story">
                     🌟 Meu Story
                 </button>
@@ -104,7 +130,43 @@ export async function renderRetrospective(params = {}) {
 
     document.getElementById('select-retro-season')?.addEventListener('change', async (e) => {
         selectedYear = parseInt(e.target.value, 10);
+        const sub = document.getElementById('retro-header-subtitle');
+        const tabs = document.getElementById('retro-segmented-tabs');
+        const isAvail = isRetrospectiveAvailable(selectedYear);
+        
+        if (sub) {
+            sub.innerHTML = isAvail 
+                ? `Resumo oficial de <strong>01/01 a 30/11/${selectedYear}</strong>: campeões, superlativos e seu Story para o Instagram!`
+                : `A temporada de ${selectedYear} fecha em 30/11. A retrospectiva oficial será liberada em <strong>01/12/${selectedYear}</strong>!`;
+        }
+        if (tabs) {
+            tabs.style.display = isAvail ? 'flex' : 'none';
+        }
+
         await loadRetrospectiveData(user);
+    });
+
+    document.getElementById('btn-admin-broadcast-whatsapp')?.addEventListener('click', async () => {
+        const ok = confirm(`Deseja enviar a notificação oficial da Retrospectiva ${selectedYear} para o grupo do WhatsApp da Montreal?`);
+        if (!ok) return;
+
+        const btn = document.getElementById('btn-admin-broadcast-whatsapp');
+        btn.disabled = true;
+        btn.innerHTML = `<span>⏳</span> Enviando no Grupo...`;
+
+        try {
+            const res = await notifyRetrospectiveRelease(selectedYear);
+            if (res.success) {
+                alert(`✅ Mensagem da Retrospectiva ${selectedYear} enviada com sucesso no grupo do WhatsApp!`);
+            } else {
+                alert(`Aviso: ${res.error || res.reason || 'Verifique a configuração de notificações.'}`);
+            }
+        } catch (err) {
+            alert("Erro ao disparar mensagem: " + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<span>📢</span> Avisar no Grupo WhatsApp`;
+        }
     });
 
     document.getElementById('tab-btn-story')?.addEventListener('click', () => {
@@ -138,6 +200,48 @@ async function loadRetrospectiveData(user) {
     const content = document.getElementById('retro-content');
     if (!content) return;
 
+    const isAvail = isRetrospectiveAvailable(selectedYear);
+    const tabsContainer = document.getElementById('retro-segmented-tabs');
+
+    // Se o ranking do ano ainda não fechou (antes de 01/12) e usuário não for admin:
+    if (!isAvail && (!user || !user.is_admin)) {
+        if (tabsContainer) tabsContainer.style.display = 'none';
+
+        content.innerHTML = `
+            <div class="card" style="text-align: center; padding: 48px 20px;">
+                <div style="font-size: 54px; margin-bottom: 14px;">🔒</div>
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--color-preto); margin-bottom: 8px;">
+                    Retrospectiva ${selectedYear} em Andamento
+                </h3>
+                <p style="font-size: 13px; color: var(--color-grey-text); max-width: 440px; margin: 0 auto 16px auto; line-height: 1.5;">
+                    A Retrospectiva Oficial, a galeria de campeões, os pódios e o seu Story do Instagram da Temporada ${selectedYear} serão liberados oficialmente no dia <strong>01/12/${selectedYear}</strong>, logo após o fechamento do ranking em 30/11.
+                </p>
+                <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-md); padding: 14px; max-width: 380px; margin: 0 auto 24px auto;">
+                    <div style="font-size: 13px; font-weight: 800; color: #b45309; margin-bottom: 4px;">🎾 A temporada ainda não acabou!</div>
+                    <div style="font-size: 11px; color: var(--color-grey-text); line-height: 1.45;">
+                        Os pontos continuam valendo até 30 de Novembro. Entre em quadra, pontue e dispute uma vaga entre os campeões do saibro!
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" onclick="window.location.hash='#/jogos/abertos'" style="font-size: 13px; font-weight: 700; padding: 10px 16px;">
+                        🎾 Ver Jogos Abertos
+                    </button>
+                    ${selectedYear > 2025 ? `
+                        <button class="btn btn-primary" id="btn-goto-prev-season" style="font-size: 13px; font-weight: 800; padding: 10px 16px;">
+                            🏛️ Ver Retrospectiva ${selectedYear - 1} (Consolidada)
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+        document.getElementById('btn-goto-prev-season')?.addEventListener('click', () => {
+            window.location.hash = `#/retrospectiva/${selectedYear - 1}`;
+        });
+        return;
+    }
+
+    if (tabsContainer) tabsContainer.style.display = 'flex';
     content.innerHTML = `<p style="text-align: center; color: var(--color-grey-text); padding: 30px;">Carregando retrospectiva da temporada ${selectedYear}...</p>`;
 
     try {

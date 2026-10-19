@@ -124,3 +124,33 @@ export function isRankingSeasonActive(date = new Date()) {
     return d.getMonth() !== 11; // 11 = Dezembro (0-indexed)
 }
 
+/**
+ * Retorna true se a retrospectiva de determinado ano já está disponível.
+ * Regulamento Montreal: A retrospectiva de cada ano só fica liberada a partir de 01/12
+ * (logo após o fechamento do ranking em 30/11).
+ * Anos anteriores já estão consolidados e sempre disponíveis.
+ */
+export function isRetrospectiveAvailable(year, date = new Date()) {
+    const d = (date instanceof Date) ? date : new Date(date);
+    const currYear = d.getFullYear();
+    const currMonth = d.getMonth(); // 0-indexed: 0 = Jan, 10 = Nov, 11 = Dez
+
+    if (year < currYear) return true;  // Anos anteriores já fecharam
+    if (year > currYear) return false; // Anos futuros ainda não aconteceram
+    
+    // Ano atual: somente disponível a partir de 01/12 (mês 11 em diante)
+    return currMonth === 11;
+}
+
+/**
+ * Retorna o ano da última retrospectiva oficialmente disponível/liberada.
+ * Se já estamos em Dezembro, retorna o ano atual.
+ * Se estamos entre Janeiro e Novembro, a retrospectiva liberada é a do ano anterior.
+ */
+export function getLatestAvailableRetrospectiveYear(date = new Date()) {
+    const d = (date instanceof Date) ? date : new Date(date);
+    const currYear = d.getFullYear();
+    const currMonth = d.getMonth();
+    return (currMonth === 11) ? currYear : (currYear - 1);
+}
+

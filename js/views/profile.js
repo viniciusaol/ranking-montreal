@@ -5,7 +5,7 @@
 import { state } from '../state.js';
 import { callRPC } from '../supabase.js';
 import { logout } from '../auth.js';
-import { formatPhone, getInitials, getCurrentSeasonYear } from '../utils.js?v=1.5.7';
+import { formatPhone, getInitials, getCurrentSeasonYear, isRetrospectiveAvailable, getLatestAvailableRetrospectiveYear } from '../utils.js?v=1.6.5';
 import { CONFIG } from '../config.js';
 
 export async function renderProfile() {
@@ -15,6 +15,8 @@ export async function renderProfile() {
     if (!user) return;
 
     const seasonYear = getCurrentSeasonYear();
+    const isRetroOpen = isRetrospectiveAvailable(seasonYear);
+    const targetRetroYear = isRetroOpen ? seasonYear : getLatestAvailableRetrospectiveYear();
 
     container.innerHTML = `
         <div class="view-container active">
@@ -55,32 +57,36 @@ export async function renderProfile() {
 
             <!-- Card de Destaque: Retrospectiva do Ano & Story Instagram -->
             <div class="card" id="btn-profile-retro" style="
-                background: linear-gradient(135deg, #18120f 0%, #29140c 100%);
-                border: 1.5px solid #f59e0b;
+                background: ${isRetroOpen ? 'linear-gradient(135deg, #18120f 0%, #29140c 100%)' : 'rgba(0, 0, 0, 0.03)'};
+                border: 1.5px ${isRetroOpen ? 'solid #f59e0b' : 'dashed var(--color-grey-border)'};
                 border-radius: var(--radius-md);
                 padding: 14px 16px;
                 margin-bottom: var(--space-md);
-                box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+                box-shadow: ${isRetroOpen ? '0 4px 14px rgba(0,0,0,0.15)' : 'none'};
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
                 cursor: pointer;
-            " onclick="window.location.hash='#/retrospectiva'">
+            " onclick="window.location.hash='#/retrospectiva/${targetRetroYear}'">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="font-size: 24px; background: rgba(245, 158, 11, 0.2); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid #f59e0b; flex-shrink: 0;">
-                        📸
+                    <div style="font-size: 24px; background: ${isRetroOpen ? 'rgba(245, 158, 11, 0.2)' : 'rgba(0, 0, 0, 0.05)'}; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid ${isRetroOpen ? '#f59e0b' : 'var(--color-grey-border)'}; flex-shrink: 0;">
+                        ${isRetroOpen ? '📸' : '🔒'}
                     </div>
                     <div>
-                        <div style="font-weight: 800; font-size: 14px; color: #ffffff; display: flex; align-items: center; gap: 6px;">
-                            <span>Meu Resumo ${seasonYear}</span>
-                            <span style="font-size: 9px; font-weight: 800; background: linear-gradient(135deg, #E1306C, #C13584); color: white; padding: 2px 6px; border-radius: 4px;">STORY INSTAGRAM</span>
+                        <div style="font-weight: 800; font-size: 14px; color: ${isRetroOpen ? '#ffffff' : 'var(--color-preto)'}; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span>${isRetroOpen ? `Meu Resumo ${seasonYear}` : `Retrospectiva ${seasonYear}`}</span>
+                            <span style="font-size: 9px; font-weight: 800; background: ${isRetroOpen ? 'linear-gradient(135deg, #E1306C, #C13584)' : '#fef3c7'}; color: ${isRetroOpen ? 'white' : '#b45309'}; padding: 2px 6px; border-radius: 4px; ${isRetroOpen ? '' : 'border: 1px solid #fde68a;'}">
+                                ${isRetroOpen ? 'STORY INSTAGRAM' : 'LIBERA EM 01/12'}
+                            </span>
                         </div>
-                        <div style="font-size: 12px; color: #cbd5e1; margin-top: 2px;">
-                            Gere seu Story estilo Spotify Wrapped com suas vitórias e compartilhe!
+                        <div style="font-size: 12px; color: ${isRetroOpen ? '#cbd5e1' : 'var(--color-grey-text)'}; margin-top: 2px;">
+                            ${isRetroOpen 
+                                ? 'Gere seu Story estilo Spotify Wrapped com suas vitórias e compartilhe!' 
+                                : `A temporada fecha em 30/11. Acesse retrospectivas anteriores ou confira as datas!`}
                         </div>
                     </div>
                 </div>
-                <span style="font-size: 18px; color: #f59e0b; font-weight: 800; flex-shrink: 0;">→</span>
+                <span style="font-size: 18px; color: ${isRetroOpen ? '#f59e0b' : 'var(--color-grey-text)'}; font-weight: 800; flex-shrink: 0;">${isRetroOpen ? '→' : '🔒'}</span>
             </div>
 
             <!-- Atalho Meus Jogos Exclusivos -->

@@ -4,7 +4,7 @@
 
 import { callRPC } from '../supabase.js';
 import { state } from '../state.js';
-import { getInitials, getCurrentSeasonYear } from '../utils.js?v=1.5.7';
+import { getInitials, getCurrentSeasonYear, isRetrospectiveAvailable } from '../utils.js?v=1.6.5';
 
 const currentYear = getCurrentSeasonYear();
 let selectedYear = currentYear;
@@ -18,20 +18,93 @@ function getSeasonBannerHTML(year, isCurrent) {
         if (isDecember) {
             return `
                 <div style="font-size: 11px; font-weight: 700; color: #b45309; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px; line-height: 1.45;">
-                    <span>⏸️</span> <span><strong>Temporada ${year} Encerrada (30/11):</strong> Dezembro em recesso oficial (sem partidas do ranking). A nova temporada inicia em Janeiro com pontuações zeradas!</span>
+                    <span>⏸️</span> <span><strong>Temporada ${year} Encerrada (30/11):</strong> Dezembro em recesso oficial (sem partidas do ranking). A Retrospectiva oficial está liberada! A nova temporada inicia em Janeiro com pontuações zeradas.</span>
                 </div>
             `;
         } else {
             return `
                 <div style="font-size: 11px; font-weight: 700; color: #15803d; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.25); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px; line-height: 1.45;">
-                    <span>⚡</span> <span><strong>Temporada ${year} em andamento:</strong> jogos válidos de Janeiro até 30/11/${year}. Em dezembro não há partidas do ranking (recesso oficial). A nova temporada inicia em Janeiro!</span>
+                    <span>⚡</span> <span><strong>Temporada ${year} em andamento:</strong> jogos válidos de Janeiro até 30/11/${year}. A Retrospectiva e Campeões oficiais serão liberados em 01/12!</span>
                 </div>
             `;
         }
     } else {
         return `
             <div style="font-size: 11px; font-weight: 700; color: #b45309; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px; line-height: 1.45;">
-                <span>🏛️</span> <span><strong>Temporada Histórica de ${year} (Encerrada em 30/11/${year}):</strong> Classificação final e campeões consolidados do ano.</span>
+                <span>🏛️</span> <span><strong>Temporada Histórica de ${year} (Encerrada em 30/11/${year}):</strong> Classificação final e pódios oficiais consolidados do ano.</span>
+            </div>
+        `;
+    }
+}
+
+function getRetroCardHTML(year) {
+    const isAvail = isRetrospectiveAvailable(year);
+
+    if (isAvail) {
+        return `
+            <div id="btn-ranking-retro-card" class="card" style="
+                background: linear-gradient(135deg, #18120f 0%, #29140c 100%);
+                border: 1.5px solid #f59e0b;
+                border-radius: var(--radius-md);
+                padding: 12px 14px;
+                margin-bottom: var(--space-md);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                cursor: pointer;
+            ">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="font-size: 24px; background: rgba(245, 158, 11, 0.15); width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid #f59e0b; flex-shrink: 0;">
+                        ✨
+                    </div>
+                    <div>
+                        <div style="font-weight: 800; font-size: 13px; color: #ffffff; display: flex; align-items: center; gap: 6px;">
+                            <span>Retrospectiva ${year}</span>
+                            <span style="font-size: 9px; font-weight: 800; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; padding: 1px 6px; border-radius: 4px;">CONSOLIDADA</span>
+                        </div>
+                        <div style="font-size: 11px; color: #cbd5e1; margin-top: 1px; line-height: 1.3;">
+                            Galeria de Campeões, pódios e seu <strong>Story para o Instagram</strong>!
+                        </div>
+                    </div>
+                </div>
+                <div style="font-size: 18px; color: #f59e0b; font-weight: 800; flex-shrink: 0;">
+                    →
+                </div>
+            </div>
+        `;
+    } else {
+        return `
+            <div id="btn-ranking-retro-card" class="card" style="
+                background: rgba(0, 0, 0, 0.03);
+                border: 1.5px dashed var(--color-grey-border);
+                border-radius: var(--radius-md);
+                padding: 12px 14px;
+                margin-bottom: var(--space-md);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                cursor: pointer;
+            ">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="font-size: 20px; background: rgba(0, 0, 0, 0.05); width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--color-grey-border); flex-shrink: 0;">
+                        🔒
+                    </div>
+                    <div>
+                        <div style="font-weight: 800; font-size: 13px; color: var(--color-preto); display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span>Retrospectiva ${year}</span>
+                            <span style="font-size: 9px; font-weight: 800; background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 1px 6px; border-radius: 4px;">LIBERA EM 01/12</span>
+                        </div>
+                        <div style="font-size: 11px; color: var(--color-grey-text); margin-top: 2px; line-height: 1.35;">
+                            Disponível a partir de 01/12, após o fechamento do ranking em 30/11. Continue jogando para pontuar!
+                        </div>
+                    </div>
+                </div>
+                <div style="font-size: 14px; color: var(--color-grey-text); font-weight: 800; flex-shrink: 0;">
+                    🔒
+                </div>
             </div>
         `;
     }
@@ -105,37 +178,9 @@ export async function renderRanking() {
                 ${getSeasonBannerHTML(selectedYear, isCurrentSeason)}
             </div>
 
-            <!-- Card de Destaque da Retrospectiva & Story Instagram -->
-            <div id="btn-ranking-retro-card" class="card" style="
-                background: linear-gradient(135deg, #18120f 0%, #29140c 100%);
-                border: 1.5px solid #f59e0b;
-                border-radius: var(--radius-md);
-                padding: 12px 14px;
-                margin-bottom: var(--space-md);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 10px;
-                cursor: pointer;
-            ">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="font-size: 24px; background: rgba(245, 158, 11, 0.15); width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid #f59e0b; flex-shrink: 0;">
-                        ✨
-                    </div>
-                    <div>
-                        <div style="font-weight: 800; font-size: 13px; color: #ffffff; display: flex; align-items: center; gap: 6px;">
-                            <span id="label-retro-year">Retrospectiva ${selectedYear}</span>
-                            <span style="font-size: 9px; font-weight: 800; background: linear-gradient(135deg, #E1306C, #C13584); color: white; padding: 1px 5px; border-radius: 4px;">NOVO</span>
-                        </div>
-                        <div style="font-size: 11px; color: #cbd5e1; margin-top: 1px; line-height: 1.3;">
-                            Galeria de Campeões, pódios e seu <strong>Story para o Instagram</strong>!
-                        </div>
-                    </div>
-                </div>
-                <div style="font-size: 18px; color: #f59e0b; font-weight: 800; flex-shrink: 0;">
-                    →
-                </div>
+            <!-- Card de Destaque da Retrospectiva & Story Instagram (Dinâmico por Ano) -->
+            <div id="ranking-retro-card-container">
+                ${getRetroCardHTML(selectedYear)}
             </div>
 
             <!-- Tabs de Categoria / Gênero -->
@@ -163,9 +208,13 @@ export async function renderRanking() {
         </div>
     `;
 
-    document.getElementById('btn-ranking-retro-card')?.addEventListener('click', () => {
-        window.location.hash = `#/retrospectiva/${selectedYear}`;
-    });
+    function attachRetroCardListener() {
+        document.getElementById('btn-ranking-retro-card')?.addEventListener('click', () => {
+            window.location.hash = `#/retrospectiva/${selectedYear}`;
+        });
+    }
+
+    attachRetroCardListener();
 
     // Configura listener da seleção de temporada
     document.getElementById('select-ranking-season')?.addEventListener('change', async (e) => {
@@ -177,9 +226,10 @@ export async function renderRanking() {
             bannerContainer.innerHTML = getSeasonBannerHTML(selectedYear, isCurrent);
         }
 
-        const labelRetro = document.getElementById('label-retro-year');
-        if (labelRetro) {
-            labelRetro.textContent = `Retrospectiva ${selectedYear}`;
+        const retroContainer = document.getElementById('ranking-retro-card-container');
+        if (retroContainer) {
+            retroContainer.innerHTML = getRetroCardHTML(selectedYear);
+            attachRetroCardListener();
         }
 
         await loadRankingList(selectedLevel, selectedGender, selectedYear);
