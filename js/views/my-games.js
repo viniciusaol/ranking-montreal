@@ -56,49 +56,67 @@ export async function renderMyGames(params = {}) {
             </div>
 
             <!-- Área de Sub-filtros para "Meus Jogos" -->
-            <div id="my-games-subfilter-container" style="${activeMainTab === 'my_games' ? 'display: block;' : 'display: none;'} margin-bottom: var(--space-sm);">
-                <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px;">
+            <div id="my-games-subfilter-container" style="${activeMainTab === 'my_games' ? 'display: block;' : 'display: none;'} margin-bottom: var(--space-sm); width: 100%;">
+                <div style="display: flex; gap: 4px; width: 100%; box-sizing: border-box;">
                     <button class="btn-subfilter ${myGamesFilter === 'all' ? 'active' : ''}" data-filter="all" style="
-                        flex: 0 0 auto;
-                        padding: 6px 14px;
+                        flex: 1 1 0;
+                        min-width: 0;
+                        padding: 6px 2px;
                         border-radius: var(--radius-full);
-                        font-size: 12px;
+                        font-size: 11px;
                         font-weight: 700;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 2px;
+                        white-space: nowrap;
                         border: 1px solid ${myGamesFilter === 'all' ? 'var(--color-saibro)' : 'var(--color-grey-border)'};
                         background-color: ${myGamesFilter === 'all' ? 'var(--color-saibro)' : '#ffffff'};
                         color: ${myGamesFilter === 'all' ? '#ffffff' : 'var(--color-preto)'};
                         cursor: pointer;
                         transition: var(--transition-fast);
                     ">
-                        🎾 Todos <span id="count-badge-all"></span>
+                        <span>🎾 Todos</span> <span id="count-badge-all" style="font-size: 10px; opacity: 0.9;"></span>
                     </button>
                     <button class="btn-subfilter ${myGamesFilter === 'upcoming' ? 'active' : ''}" data-filter="upcoming" style="
-                        flex: 0 0 auto;
-                        padding: 6px 14px;
+                        flex: 1 1 0;
+                        min-width: 0;
+                        padding: 6px 2px;
                         border-radius: var(--radius-full);
-                        font-size: 12px;
+                        font-size: 11px;
                         font-weight: 700;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 2px;
+                        white-space: nowrap;
                         border: 1px solid ${myGamesFilter === 'upcoming' ? 'var(--color-saibro)' : 'var(--color-grey-border)'};
                         background-color: ${myGamesFilter === 'upcoming' ? 'var(--color-saibro)' : '#ffffff'};
                         color: ${myGamesFilter === 'upcoming' ? '#ffffff' : 'var(--color-preto)'};
                         cursor: pointer;
                         transition: var(--transition-fast);
                     ">
-                        ⏳ Agendados <span id="count-badge-upcoming"></span>
+                        <span>⏳ Agendados</span> <span id="count-badge-upcoming" style="font-size: 10px; opacity: 0.9;"></span>
                     </button>
                     <button class="btn-subfilter ${myGamesFilter === 'history' ? 'active' : ''}" data-filter="history" style="
-                        flex: 0 0 auto;
-                        padding: 6px 14px;
+                        flex: 1 1 0;
+                        min-width: 0;
+                        padding: 6px 2px;
                         border-radius: var(--radius-full);
-                        font-size: 12px;
+                        font-size: 11px;
                         font-weight: 700;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 2px;
+                        white-space: nowrap;
                         border: 1px solid ${myGamesFilter === 'history' ? 'var(--color-saibro)' : 'var(--color-grey-border)'};
                         background-color: ${myGamesFilter === 'history' ? 'var(--color-saibro)' : '#ffffff'};
                         color: ${myGamesFilter === 'history' ? '#ffffff' : 'var(--color-preto)'};
                         cursor: pointer;
                         transition: var(--transition-fast);
                     ">
-                        🏆 Concluídos <span id="count-badge-history"></span>
+                        <span>🏆 Concluídos</span> <span id="count-badge-history" style="font-size: 10px; opacity: 0.9;"></span>
                     </button>
                 </div>
             </div>
