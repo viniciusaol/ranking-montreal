@@ -8,13 +8,13 @@ import { loginWithPhone, checkAuth } from './auth.js';
 import { callRPC } from './supabase.js';
 import { CONFIG } from './config.js';
 
-import { renderHome } from './views/home.js?v=1.5.1';
-import { renderRanking } from './views/ranking.js?v=1.5.1';
-import { renderGameCreate } from './views/game-create.js?v=1.5.1';
-import { renderGameDetail } from './views/game-detail.js?v=1.5.1';
-import { renderMyGames } from './views/my-games.js?v=1.5.1';
-import { renderProfile } from './views/profile.js?v=1.5.1';
-import { renderAdmin } from './views/admin.js?v=1.5.1';
+import { renderHome } from './views/home.js?v=1.5.2';
+import { renderRanking } from './views/ranking.js?v=1.5.2';
+import { renderGameCreate } from './views/game-create.js?v=1.5.2';
+import { renderGameDetail } from './views/game-detail.js?v=1.5.2';
+import { renderMyGames } from './views/my-games.js?v=1.5.2';
+import { renderProfile } from './views/profile.js?v=1.5.2';
+import { renderAdmin } from './views/admin.js?v=1.5.2';
 
 // Registrar Rotas
 router.addRoute('/home', renderHome);
@@ -107,7 +107,9 @@ function setupAuthModal() {
             if (!user.terms_accepted) {
                 showOnboardingModal(user);
             } else {
-                router.navigate('/home');
+                const redirectTarget = sessionStorage.getItem('mt_redirect_after_login');
+                sessionStorage.removeItem('mt_redirect_after_login');
+                router.navigate(redirectTarget && redirectTarget !== '/login' ? redirectTarget : '/home');
             }
         } catch (err) {
             authErrorMsg.textContent = err.message || "Não foi possível realizar o login.";
@@ -176,7 +178,9 @@ function setupOnboardingModal() {
 
             overlay?.classList.remove('active');
             updateHeaderUserBadge();
-            router.navigate('/home');
+            const redirectTarget = sessionStorage.getItem('mt_redirect_after_login');
+            sessionStorage.removeItem('mt_redirect_after_login');
+            router.navigate(redirectTarget && redirectTarget !== '/login' ? redirectTarget : '/home');
         } catch (err) {
             alert("Erro ao salvar cadastro: " + err.message);
         }

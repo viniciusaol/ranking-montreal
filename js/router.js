@@ -23,11 +23,16 @@ class Router {
         let hash = window.location.hash.slice(1) || '/home';
         
         if (hash === '/login' && checkAuth()) {
-            this.navigate('/home');
+            const redirectTarget = sessionStorage.getItem('mt_redirect_after_login');
+            sessionStorage.removeItem('mt_redirect_after_login');
+            this.navigate(redirectTarget && redirectTarget !== '/login' ? redirectTarget : '/home');
             return;
         }
 
         if (hash !== '/login' && !checkAuth()) {
+            if (hash && hash !== '/login') {
+                sessionStorage.setItem('mt_redirect_after_login', hash);
+            }
             this.navigate('/login');
             return;
         }
