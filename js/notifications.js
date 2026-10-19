@@ -144,3 +144,81 @@ Quem topa o desafio? Acesse o app e entre na partida:
 
     return { success: notificationStatus === 'sent' || notificationStatus === 'sent_via_n8n', status: notificationStatus };
 }
+
+/**
+ * Notifica o grupo de WhatsApp do Ranking quando um tenista aceita e entra em uma partida aberta.
+ */
+export async function notifyOpenGameJoined(game, creator, challenger) {
+    if (!CONFIG.NOTIFICATIONS || !CONFIG.NOTIFICATIONS.ENABLED) {
+        return { success: false, reason: 'Notifications disabled' };
+    }
+
+    const gameId = game.id;
+    const challengerName = challenger?.display_name || challenger?.name || 'Um tenista';
+    const creatorName = creator?.display_name || creator?.name || 'Criador';
+    const level = game.accepted_level || 'C';
+    const friendlyDate = formatFriendlyDate(game.game_date);
+    const friendlyTime = formatTimeHM(game.start_time);
+
+    const messageText = 
+`🎾 *DESAFIO ACEITO NO RANKING!*
+
+A partida aberta foi aceita e confirmada!
+
+👤 *Jogadores:* ${creatorName} vs ${challengerName}
+🏆 *Nível:* Nível ${level} (${game.gender_category || 'Masculino'})
+📅 *Data:* ${friendlyDate} às ${friendlyTime}
+📍 *Local:* Montreal Tênis Clube
+
+Partida fechada e confirmada. Boa sorte aos tenistas! 🎾🔥`;
+
+    const payload = {
+        event: 'open_game_joined',
+        game_id: gameId,
+        creator_name: creatorName,
+        challenger_name: challengerName,
+        level: level,
+        game_date: game.game_date,
+        start_time: game.start_time,
+        formatted_message: messageText
+    };
+
+    let notificationStatus = 'pending';
+
+    try {
+        if (CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL && CONFIG.NOTIFICATIONS.UAZAPI_TOKEN && CONFIG.NOTIFICATIONS.RANKING_GROUP_JID) {
+            const endpoint = `${CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL.replace(/\/+$/, '')}/send/text`;
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'token': CONFIG.NOTIFICATIONS.UAZAPI_TOKEN
+                },
+                body: JSON.stringify({
+                    number: CONFIG.NOTIFICATIONS.RANKING_GROUP_JID,
+                    text: messageText
+                })
+            });
+            notificationStatus = resp.ok ? 'sent' : 'failed';
+        }
+    } catch (err) {
+        console.error('Erro ao notificar aceite de jogo no WhatsApp:', err);
+        notificationStatus = 'error';
+    }
+
+    try {
+        await db.from('mt_game_notifications').insert({
+            customer_code: challenger?.customer_code,
+            event_type: 'game_joined',
+            game_id: gameId,
+            payload: payload,
+            status: notificationStatus,
+            sent_at: notificationStatus === 'sent' ? new Date().toISOString() : null
+        });
+    } catch (dbErr) {
+        console.warn('Erro ao registrar log de aceite no banco:', dbErr);
+    }
+
+    return { success: notificationStatus === 'sent', status: notificationStatus };
+}
+

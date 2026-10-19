@@ -131,6 +131,19 @@ async function loadGamesList(user) {
             }
         }
 
+        // Busca perfis dos criadores para os jogos abertos
+        const creatorCodes = [...new Set(games.map(g => g.creator_customer_code).filter(Boolean))];
+        let creatorMap = {};
+        if (creatorCodes.length > 0) {
+            const { data: profiles } = await db.from('mt_game_profiles').select('customer_code, display_name').in('customer_code', creatorCodes);
+            if (profiles) profiles.forEach(p => { creatorMap[p.customer_code] = p.display_name; });
+            const missing = creatorCodes.filter(c => !creatorMap[c]);
+            if (missing.length > 0) {
+                const { data: clientes } = await db.from('mt_clientes').select('customer_code, name').in('customer_code', missing);
+                if (clientes) clientes.forEach(c => { creatorMap[c.customer_code] = c.name; });
+            }
+        }
+
         listContainer.innerHTML = `
             <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
                 ${games.map(game => {
@@ -166,6 +179,9 @@ async function loadGamesList(user) {
                         }
                     }
 
+                    const isCreator = String(game.creator_customer_code).trim() === String(user.customer_code).trim();
+                    const creatorName = isCreator ? "Você" : (creatorMap[game.creator_customer_code] || "Tenista");
+
                     return `
                         <div class="card" style="margin-bottom: var(--space-sm); cursor: pointer;" onclick="window.location.hash='#/jogos/${game.id}'">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -200,6 +216,27 @@ async function loadGamesList(user) {
                                 📍 ${game.location_id === 1 ? 'Montreal Tênis Clube' : 'Outro Local'} 
                                 • Quadra: ${game.court_reservation_status === 'reserva_declarada' ? '✅ Informada' : '⚠️ Pendente'}
                             </div>
+
+                            ${activeTab === 'open' ? `
+                                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--color-grey-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                                    <span style="font-size: 12px; color: var(--color-grey-text);">
+                                        Desafio de: <strong style="color: var(--color-preto);">${creatorName}</strong>
+                                    </span>
+                                    ${isCreator ? `
+                                        <span style="font-size: 11px; font-weight: 700; color: #0056b3; background: rgba(0,123,255,0.08); border: 1px solid rgba(0,123,255,0.2); padding: 4px 10px; border-radius: 12px;">
+                                            👤 Seu Desafio (Aguardando)
+                                        </span>
+                                    ` : (isLevelEligible(user.current_level, game.accepted_level) ? `
+                                        <span class="badge badge-success" style="font-size: 11px; font-weight: 800; padding: 6px 12px; border-radius: 12px; box-shadow: 0 2px 6px rgba(40,167,69,0.25);">
+                                            🎾 Entrar na Partida →
+                                        </span>
+                                    ` : `
+                                        <span style="font-size: 10px; color: var(--color-grey-text); background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px;">
+                                            🔒 Incompatível
+                                        </span>
+                                    `)}
+                                </div>
+                            ` : ''}
                         </div>
                     `;
                 }).join('')}

@@ -5,6 +5,7 @@
 import { state } from '../state.js';
 import { db, callRPC } from '../supabase.js';
 import { formatDateBR, formatTimeHM, openMontrealBooking, getGameStatusLabel, getCourtReservationStatusLabel, isLevelEligible, getAllowedGameLevels } from '../utils.js?v=1.4.8';
+import { notifyOpenGameJoined } from '../notifications.js';
 
 const isSameUser = (code1, code2) => {
     if (!code1 || !code2) return false;
@@ -28,17 +29,18 @@ export async function renderGameDetail(params) {
 
         const { data: participants } = await db.from('mt_game_participants').select('*').eq('game_id', gameId);
         
-        // Busca os nomes e perfis dos participantes
+        // Busca os nomes e perfis dos participantes e do criador
         const participantCodes = (participants || []).map(p => p.customer_code);
+        const codesToFetch = [...new Set([...participantCodes, game.creator_customer_code].filter(Boolean))];
         let playerNames = {};
-        if (participantCodes.length > 0) {
+        if (codesToFetch.length > 0) {
             const { data: profiles } = await db.from('mt_game_profiles')
                 .select('customer_code, display_name')
-                .in('customer_code', participantCodes);
+                .in('customer_code', codesToFetch);
             if (profiles) {
                 profiles.forEach(p => { playerNames[p.customer_code] = p.display_name; });
             }
-            const missingCodes = participantCodes.filter(c => !playerNames[c]);
+            const missingCodes = codesToFetch.filter(c => !playerNames[c]);
             if (missingCodes.length > 0) {
                 const { data: clientes } = await db.from('mt_clientes')
                     .select('customer_code, name')
@@ -49,14 +51,17 @@ export async function renderGameDetail(params) {
             }
         }
 
+        const isCreator = isSameUser(game.creator_customer_code, user.customer_code);
+        const myParticipant = participants?.find(p => isSameUser(p.customer_code, user.customer_code));
+        const isJoined = !!myParticipant;
+
+        const creatorName = isCreator ? (user.display_name || user.name || "Você") : (playerNames[game.creator_customer_code] || "Tenista da Montreal");
+        const creatorFirstName = isCreator ? "Você" : creatorName.split(' ')[0];
+
         const opponentParticipant = participants?.find(p => !isSameUser(p.customer_code, user.customer_code));
         const opponentName = opponentParticipant ? (playerNames[opponentParticipant.customer_code] || "Adversário") : "Aguardando Adversário";
         const opponentFirstName = opponentParticipant ? opponentName.split(' ')[0] : "A Definir";
         const userFirstName = (user.display_name || user.name || "Você").split(' ')[0];
-
-        const isCreator = isSameUser(game.creator_customer_code, user.customer_code);
-        const myParticipant = participants?.find(p => isSameUser(p.customer_code, user.customer_code));
-        const isJoined = !!myParticipant;
 
         // Busca o resultado completo cadastrado via RPC
         let latestResult = null;
@@ -135,6 +140,60 @@ export async function renderGameDetail(params) {
                     </div>
                 </div>
 
+                <!-- Status Especial de Desafio Aberto / CTA Principal para Entrar na Partida -->
+                ${!isJoined && game.status === 'open' && (participants?.length || 0) < 2 ? `
+                    <div class="card" style="background: #f0fdf4; border: 2px solid #22c55e; text-align: center; padding: 22px 16px; margin-bottom: var(--space-md); box-shadow: 0 4px 14px rgba(34, 197, 94, 0.15);">
+                        ${isLevelEligible(user.current_level, game.accepted_level) ? `
+                            <div style="font-size: 34px; margin-bottom: 6px;">🎾</div>
+                            <h2 style="font-size: 18px; font-weight: 800; color: #15803d; margin-bottom: 6px;">
+                                Desafio Aberto por ${creatorFirstName}!
+                            </h2>
+                            <p style="font-size: 13px; color: #166534; margin-bottom: 16px; line-height: 1.45;">
+                                Você é <strong>Nível ${user.current_level}</strong> e está apto a disputar esta partida válida pelo ranking de <strong>Nível ${game.accepted_level}</strong>.<br>
+                                Clique no botão abaixo para aceitar o desafio e entrar na partida!
+                            </p>
+                            <button class="btn btn-primary" id="btn-join-open-game" style="font-size: 16px; font-weight: 800; padding: 14px 28px; width: 100%; max-width: 320px; margin: 0 auto; background: #16a34a; border-color: #16a34a; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35); cursor: pointer;">
+                                🎾 Entrar na Partida
+                            </button>
+                        ` : `
+                            <div style="font-size: 30px; margin-bottom: 6px;">🔒</div>
+                            <h3 style="font-size: 16px; font-weight: 800; color: #dc3545; margin-bottom: 6px;">
+                                Partida restrita ao Nível ${game.accepted_level}
+                            </h3>
+                            <p style="font-size: 12px; color: var(--color-grey-text); margin-bottom: 10px; line-height: 1.4;">
+                                Pelas regras do ranking, é permitido disputar partidas do seu nível atual ou no máximo 1 degrau acima.<br>
+                                Seu nível atual é <strong>${user.current_level}</strong> (permitido jogar níveis <strong>${getAllowedGameLevels(user.current_level).join(' ou ')}</strong>).
+                            </p>
+                            <div style="font-size: 11px; font-weight: 700; color: var(--color-danger); background: rgba(220, 53, 69, 0.08); padding: 8px 14px; border-radius: var(--radius-sm); display: inline-block;">
+                                🔒 Inscrição bloqueada para o seu nível
+                            </div>
+                        `}
+                    </div>
+                ` : ''}
+
+                ${isCreator && game.status === 'open' && !opponentParticipant ? `
+                    <div class="card" style="background: rgba(0, 123, 255, 0.05); border: 2px solid #007bff; text-align: center; padding: 22px 16px; margin-bottom: var(--space-md); border-radius: var(--radius-md);">
+                        <div style="font-size: 34px; margin-bottom: 6px;">📢</div>
+                        <h3 style="font-size: 16px; font-weight: 800; color: #0056b3; margin-bottom: 6px;">
+                            Você criou este Desafio Aberto!
+                        </h3>
+                        <p style="font-size: 13px; color: var(--color-preto); margin-bottom: 12px; line-height: 1.45;">
+                            O link e o aviso deste desafio foram enviados no grupo do WhatsApp.<br>
+                            Assim que outro tenista de <strong>Nível ${game.accepted_level}</strong> clicar no link e entrar na partida, ele entrará automaticamente aqui como seu adversário.
+                        </p>
+                        <div style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #0056b3; background: rgba(0, 123, 255, 0.12); padding: 8px 18px; border-radius: 20px;">
+                            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #007bff;"></span>
+                            Aguardando outro tenista aceitar o desafio pelo app...
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${!isJoined && (game.status !== 'open' || (participants?.length || 0) >= 2) && !latestResult ? `
+                    <div class="card" style="text-align: center; color: var(--color-grey-text); font-size: 12px; padding: var(--space-md); margin-bottom: var(--space-md); background: rgba(0,0,0,0.02);">
+                        🔒 Esta partida já possui jogadores definidos. Apenas os participantes registrados podem lançar o placar.
+                    </div>
+                ` : ''}
+
                 <!-- Participantes da Partida & Opção de Trocar Adversário antes do Placar -->
                 <div class="card" style="border-left: 4px solid var(--color-saibro);">
                     <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -146,23 +205,43 @@ export async function renderGameDetail(params) {
                         ` : ''}
                     </div>
 
-                    <div style="display: flex; justify-content: space-around; align-items: center; background: rgba(0,0,0,0.03); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--color-grey-border);">
-                        <div style="text-align: center; flex: 1;">
-                            <div style="font-size: 11px; color: var(--color-grey-text); font-weight: 700; text-transform: uppercase;">Você</div>
-                            <div style="font-size: 14px; font-weight: 800; color: var(--color-saibro); margin-top: 2px;">
-                                👤 ${userFirstName}
+                    ${isJoined ? `
+                        <div style="display: flex; justify-content: space-around; align-items: center; background: rgba(0,0,0,0.03); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--color-grey-border);">
+                            <div style="text-align: center; flex: 1;">
+                                <div style="font-size: 11px; color: var(--color-grey-text); font-weight: 700; text-transform: uppercase;">Você</div>
+                                <div style="font-size: 14px; font-weight: 800; color: var(--color-saibro); margin-top: 2px;">
+                                    👤 ${userFirstName}
+                                </div>
+                                <div style="font-size: 10px; color: var(--color-grey-text);">${isCreator ? '(Criador)' : '(Jogador)'}</div>
                             </div>
-                            <div style="font-size: 10px; color: var(--color-grey-text);">${isCreator ? '(Criador)' : '(Jogador)'}</div>
-                        </div>
-                        <div style="font-weight: 800; color: var(--color-grey-text); font-size: 13px;">VS</div>
-                        <div style="text-align: center; flex: 1;">
-                            <div style="font-size: 11px; color: var(--color-grey-text); font-weight: 700; text-transform: uppercase;">Adversário</div>
-                            <div style="font-size: 14px; font-weight: 800; color: ${opponentParticipant ? 'var(--color-preto)' : 'var(--color-grey-text)'}; margin-top: 2px;">
-                                🎾 ${opponentName}
+                            <div style="font-weight: 800; color: var(--color-grey-text); font-size: 13px;">VS</div>
+                            <div style="text-align: center; flex: 1;">
+                                <div style="font-size: 11px; color: var(--color-grey-text); font-weight: 700; text-transform: uppercase;">Adversário</div>
+                                <div style="font-size: 14px; font-weight: 800; color: ${opponentParticipant ? 'var(--color-preto)' : 'var(--color-grey-text)'}; margin-top: 2px;">
+                                    🎾 ${opponentName}
+                                </div>
+                                <div style="font-size: 10px; color: var(--color-grey-text);">${opponentParticipant ? 'Confirmado' : 'Aguardando Desafiante'}</div>
                             </div>
-                            <div style="font-size: 10px; color: var(--color-grey-text);">${opponentParticipant ? 'Confirmado' : 'Aguardando'}</div>
                         </div>
-                    </div>
+                    ` : `
+                        <div style="display: flex; justify-content: space-around; align-items: center; background: rgba(0,0,0,0.03); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--color-grey-border);">
+                            <div style="text-align: center; flex: 1;">
+                                <div style="font-size: 11px; color: var(--color-grey-text); font-weight: 700; text-transform: uppercase;">Criador do Desafio</div>
+                                <div style="font-size: 14px; font-weight: 800; color: var(--color-saibro); margin-top: 2px;">
+                                    👤 ${creatorName}
+                                </div>
+                                <div style="font-size: 10px; color: var(--color-grey-text);">Nível ${game.accepted_level}</div>
+                            </div>
+                            <div style="font-weight: 800; color: var(--color-grey-text); font-size: 13px;">VS</div>
+                            <div style="text-align: center; flex: 1;">
+                                <div style="font-size: 11px; color: var(--color-grey-text); font-weight: 700; text-transform: uppercase;">Adversário</div>
+                                <div style="font-size: 14px; font-weight: 800; color: ${opponentParticipant ? 'var(--color-preto)' : 'var(--color-saibro)'}; margin-top: 2px;">
+                                    🎾 ${opponentParticipant ? opponentName : 'Vaga Aberta'}
+                                </div>
+                                <div style="font-size: 10px; color: var(--color-grey-text);">${opponentParticipant ? 'Confirmado' : 'Aguardando Inscrição'}</div>
+                            </div>
+                        </div>
+                    `}
 
                     <!-- Painel de Troca de Adversário (oculto até clicar em Trocar) -->
                     ${isJoined && !latestResult ? `
@@ -333,9 +412,24 @@ export async function renderGameDetail(params) {
                     </div>
                 ` : ''}
 
+                <!-- Opção para lançar placar antecipado se o criador já jogou sem o adversário aceitar pelo app -->
+                ${isJoined && !latestResult && isCreator && game.status === 'open' && !opponentParticipant ? `
+                    <div class="card" style="border: 1px dashed var(--color-grey-border); background: rgba(0,0,0,0.02); text-align: center; padding: 16px;">
+                        <div style="font-size: 13px; font-weight: 700; color: var(--color-preto); margin-bottom: 4px;">
+                            Já disputou esta partida antes de alguém aceitar no app?
+                        </div>
+                        <p style="font-size: 11px; color: var(--color-grey-text); margin-bottom: 10px;">
+                            Se você combinou direto na quadra, pode escolher seu adversário manualmente e registrar o placar agora.
+                        </p>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-manual-score" style="width: auto; margin: 0 auto; font-size: 11px; padding: 6px 14px;">
+                            📝 Lançar Placar e Escolher Adversário Manualmente
+                        </button>
+                    </div>
+                ` : ''}
+
                 <!-- Form de Registro de Placar (Apenas se ainda NÃO houver placar cadastrado) -->
                 ${isJoined && !latestResult ? `
-                    <div class="card" id="card-score-form" style="border-left: 5px solid var(--color-saibro);">
+                    <div class="card" id="card-score-form" style="${isCreator && game.status === 'open' && !opponentParticipant ? 'display: none; ' : ''}border-left: 5px solid var(--color-saibro);">
                         <div class="card-title">
                             <span>📝 Registrar Placar da Partida</span>
                         </div>
@@ -465,36 +559,6 @@ export async function renderGameDetail(params) {
                     </div>
                 ` : ''}
 
-                <!-- Se o usuário NÃO for participante e a partida for aberta, permite entrar se elegível -->
-                ${!isJoined && game.status === 'open' && (participants?.length || 0) < 2 ? `
-                    <div class="card" style="text-align: center; border-left: 5px solid var(--color-saibro); padding: var(--space-lg);">
-                        ${isLevelEligible(user.current_level, game.accepted_level) ? `
-                            <h3 style="font-size: 15px; font-weight: 800; margin-bottom: 6px; color: var(--color-preto);">Quer jogar esta partida?</h3>
-                            <p style="font-size: 12px; color: var(--color-grey-text); margin-bottom: 15px;">
-                                Esta partida está aberta e pontua no Ranking de <strong>Nível ${game.accepted_level}</strong>. Como seu nível é ${user.current_level}, você está apto a participar!
-                            </p>
-                            <button class="btn btn-primary btn-sm" id="btn-join-open-game" style="margin: 0 auto; width: auto; padding: 10px 24px;">
-                                🎾 Entrar na Partida
-                            </button>
-                        ` : `
-                            <h3 style="font-size: 15px; font-weight: 800; margin-bottom: 6px; color: var(--color-preto);">Partida de Nível ${game.accepted_level}</h3>
-                            <p style="font-size: 12px; color: var(--color-grey-text); margin-bottom: 10px;">
-                                Pelas regras do ranking, é permitido disputar partidas do seu nível atual ou no máximo 1 degrau acima.<br>
-                                Seu nível atual é <strong>${user.current_level}</strong> (permitido jogar níveis <strong>${getAllowedGameLevels(user.current_level).join(' ou ')}</strong>).
-                            </p>
-                            <div style="font-size: 11px; font-weight: 700; color: var(--color-danger); background: rgba(220, 53, 69, 0.08); padding: 8px 14px; border-radius: var(--radius-sm); display: inline-block;">
-                                🔒 Inscrição bloqueada para o seu nível
-                            </div>
-                        `}
-                    </div>
-                ` : ''}
-
-                <!-- Se o usuário NÃO for participante e a partida NÃO for aberta -->
-                ${!isJoined && (game.status !== 'open' || (participants?.length || 0) >= 2) && !latestResult ? `
-                    <div class="card" style="text-align: center; color: var(--color-grey-text); font-size: 12px; padding: var(--space-md); background: rgba(0,0,0,0.02);">
-                        🔒 Apenas os jogadores registrados nesta partida podem lançar o placar.
-                    </div>
-                ` : ''}
             </div>
         `;
 
@@ -502,10 +566,26 @@ export async function renderGameDetail(params) {
             window.location.hash = '#/jogos';
         });
 
+        document.getElementById('btn-toggle-manual-score')?.addEventListener('click', () => {
+            const formCard = document.getElementById('card-score-form');
+            if (formCard) {
+                const isHidden = formCard.style.display === 'none';
+                formCard.style.display = isHidden ? 'block' : 'none';
+                if (isHidden) {
+                    formCard.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        });
+
         document.getElementById('btn-join-open-game')?.addEventListener('click', async () => {
             if (!isLevelEligible(user.current_level, game.accepted_level)) {
                 alert(`Você é Nível ${user.current_level} e não pode entrar em uma partida de Nível ${game.accepted_level}.\n\nRegra do Ranking: Jogadores só podem disputar partidas no seu nível atual ou 1 degrau acima (${getAllowedGameLevels(user.current_level).join(', ')}).`);
                 return;
+            }
+            const btn = document.getElementById('btn-join-open-game');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Entrando na partida...';
             }
             try {
                 await db.from('mt_game_participants').insert({
@@ -515,10 +595,23 @@ export async function renderGameDetail(params) {
                     invite_status: 'accepted'
                 });
                 await db.from('mt_games').update({ status: 'confirmed' }).eq('id', gameId);
-                alert("Você entrou na partida com sucesso!");
+
+                // Notifica o grupo de WhatsApp em segundo plano
+                try {
+                    notifyOpenGameJoined(game, { customer_code: game.creator_customer_code, display_name: creatorName }, user);
+                } catch (notifErr) {
+                    console.warn('Erro ao notificar aceite no WhatsApp:', notifErr);
+                }
+
+                alert(`Você entrou na partida com sucesso!\n\nAgora você e ${creatorName} são os jogadores confirmados desta partida oficial do Ranking.`);
                 renderGameDetail(params);
             } catch (errJoin) {
-                alert("Erro ao entrar na partida: " + errJoin.message);
+                console.error("Erro ao entrar na partida:", errJoin);
+                alert("Erro ao entrar na partida: " + (errJoin.message || 'Tente novamente.'));
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '🎾 Entrar na Partida';
+                }
             }
         });
 
