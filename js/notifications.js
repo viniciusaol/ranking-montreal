@@ -242,7 +242,7 @@ A temporada oficial de *${year}* encerrou em 30 de Novembro e os números finais
 📸 *Seu Story de Atleta (Estilo Spotify Wrapped):* Veja quantas partidas você disputou, seus pontos, suas vitórias, seu maior rival e gere seu card exclusivo para postar nos Stories do Instagram!
 
 👉 *Acesse sua Retrospectiva agora mesmo:*
-🔗 https://www.montrealtenis.com.br
+🔗 https://ranking.montrealtenis.com.br/#/ranking
 
 Compartilhe seu Story e marque a Montreal: *@montreal.tenisclube* 🎾✨`;
 

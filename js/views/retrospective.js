@@ -844,7 +844,7 @@ function handleShareWhatsApp(p, year) {
         `📊 *Pontos:* ${p.total_points || 0} pts (Posição #${p.rank_position || 1})%0A` +
         `🎾 *Partidas:* ${p.total_games || 0} (${p.total_wins || 0}V • ${p.total_losses || 0}D)%0A` +
         `⚡ *Aproveitamento:* ${p.win_rate || 0}% de vitórias%0A%0A` +
-        `Confira o ranking completo e venha jogar: https://www.montrealtenis.com.br`;
+        `Confira o ranking completo e venha jogar: https://ranking.montrealtenis.com.br/#/ranking`;
 
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
 }
@@ -856,7 +856,7 @@ function handleCopyText(p, year) {
         `📊 Pontuação: ${p.total_points || 0} pts (Posição #${p.rank_position || 1})\n` +
         `🎾 Partidas: ${p.total_games || 0} jogos (${p.total_wins || 0} vitórias)\n` +
         `⚡ Aproveitamento: ${p.win_rate || 0}%\n\n` +
-        `Acesse a Montreal: https://www.montrealtenis.com.br`;
+        `Acesse o ranking da Montreal: https://ranking.montrealtenis.com.br/#/ranking`;
 
     navigator.clipboard.writeText(text).then(() => {
         alert("📋 Resumo copiado para a área de transferência!");
@@ -1468,7 +1468,7 @@ function handleSharePodiumsWhatsApp(c, year) {
         text += `%0A`;
     });
 
-    text += `Confira os pódios e ranking completo: https://www.montrealtenis.com.br`;
+    text += `Confira os pódios e ranking completo: https://ranking.montrealtenis.com.br/#/ranking`;
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
 }
 
@@ -1745,7 +1745,7 @@ function handleShareRecordsWhatsApp(c, year) {
         `⚡ *Maior Pontuador:* ${topScorer ? `${topScorer.display_name} (${topScorer.total_points} pts)` : 'N/A'}%0A` +
         `🎯 *Mais Eficiente:* ${bestWinrate ? `${bestWinrate.display_name} (${bestWinrate.win_rate}% vitórias)` : 'N/A'}%0A` +
         `⚔️ *Maior Duelo:* ${(topRivalry && topRivalry.player1_name) ? `${topRivalry.player1_name.split(' ')[0]} vs ${topRivalry.player2_name.split(' ')[0]} (${topRivalry.matches_count} jogos)` : 'N/A'}%0A%0A` +
-        `Confira todos os números em: https://www.montrealtenis.com.br`;
+        `Confira todos os números em: https://ranking.montrealtenis.com.br/#/ranking`;
 
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
 }
