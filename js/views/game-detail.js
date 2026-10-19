@@ -1099,6 +1099,14 @@ async function submitGameScore(user, game, participants, selectedScoreOpponent =
         return;
     }
 
+    if (game.game_date) {
+        const parts = game.game_date.split('-');
+        if (parts.length === 3 && parseInt(parts[1], 10) === 12) {
+            alert("⚠️ Em dezembro NÃO há partidas do ranking (período de recesso oficial).\n\nA temporada ocorre exclusivamente de Janeiro a 30 de Novembro. A nova temporada com pontuações zeradas iniciará em Janeiro!");
+            return;
+        }
+    }
+
     const btnSubmit = document.getElementById('btn-submit-score');
     btnSubmit.disabled = true;
     btnSubmit.textContent = "Salvando e pontuando no ranking...";

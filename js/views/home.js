@@ -4,7 +4,7 @@
 
 import { state } from '../state.js';
 import { callRPC } from '../supabase.js';
-import { formatDateBR, openMontrealBooking } from '../utils.js?v=1.4.8';
+import { formatDateBR, openMontrealBooking, getCurrentSeasonYear } from '../utils.js?v=1.5.7';
 
 let selectedDate = new Date().toISOString().split('T')[0];
 
@@ -13,6 +13,8 @@ export async function renderHome() {
     const user = state.getUser();
 
     if (!user) return;
+
+    const seasonYear = getCurrentSeasonYear();
 
     // Gera lista dos próximos 5 dias a partir de hoje
     const dateOptions = [];
@@ -48,7 +50,7 @@ export async function renderHome() {
                         <h2 style="font-size: var(--font-size-xl); font-weight: 800; margin-top: 2px; color: var(--color-preto);">${user.display_name}</h2>
                         <div style="display: flex; gap: var(--space-xs); margin-top: var(--space-xs); flex-wrap: wrap;">
                             <span class="badge badge-level-${user.current_level}">Nível ${user.current_level}</span>
-                            <span class="badge badge-success">Posição #${user.rank_position} (${new Date().getFullYear()})</span>
+                            <span class="badge badge-success">Posição #${user.rank_position} (Temporada ${seasonYear})</span>
                             <span class="badge" style="background: rgba(192, 81, 49, 0.1); color: var(--color-saibro); font-weight: 800; cursor: pointer;" onclick="window.location.hash='#/jogos'">
                                 🎾 Meus Jogos →
                             </span>
@@ -56,7 +58,7 @@ export async function renderHome() {
                     </div>
                     <div style="text-align: right;">
                         <span style="font-size: var(--font-size-2xl); font-weight: 800; color: var(--color-saibro);">${user.total_points}</span>
-                        <span style="display: block; font-size: var(--font-size-xs); color: var(--color-grey-text);">Pontos (${new Date().getFullYear()})</span>
+                        <span style="display: block; font-size: var(--font-size-xs); color: var(--color-grey-text);">Pontos (até 30/11)</span>
                     </div>
                 </div>
             </div>

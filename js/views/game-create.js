@@ -4,7 +4,7 @@
 
 import { state } from '../state.js';
 import { db, callRPC } from '../supabase.js';
-import { openMontrealBooking, getAllowedGameLevels, isLevelEligible, LEVEL_LABELS } from '../utils.js?v=1.4.8';
+import { openMontrealBooking, getAllowedGameLevels, isLevelEligible, LEVEL_LABELS, isRankingSeasonActive } from '../utils.js?v=1.5.7';
 import { notifyOpenGameCreated } from '../notifications.js?v=1.5.0';
 
 let selectedInvitedPlayer = null;
@@ -22,6 +22,7 @@ export async function renderGameCreate() {
 
     const draft = state.loadDraftGame();
     const todayStr = new Date().toISOString().split('T')[0];
+    const isDecember = !isRankingSeasonActive();
     selectedInvitedPlayer = null;
 
     const userLevel = (user.current_level || 'C').toUpperCase();
@@ -41,6 +42,15 @@ export async function renderGameCreate() {
             <p style="font-size: var(--font-size-sm); color: var(--color-grey-text); margin-bottom: var(--space-md);">
                 Escolha se deseja publicar um jogo aberto ou convidar um adversário diretamente.
             </p>
+
+            ${isDecember ? `
+                <div style="background: rgba(245, 158, 11, 0.12); border: 1.5px solid #f59e0b; border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: var(--space-md); font-size: 13px; color: #92400e; line-height: 1.45;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-weight: 800; margin-bottom: 4px;">
+                        <span>⏸️</span> <span>Recesso Oficial de Dezembro</span>
+                    </div>
+                    Em dezembro <strong>não há partidas do ranking</strong> (período de recesso oficial do clube). A temporada anual ocorre exclusivamente de <strong>Janeiro até 30 de Novembro</strong>. A nova temporada com pontuações zeradas iniciará em <strong>Janeiro</strong>!
+                </div>
+            ` : ''}
 
             <form id="form-game-create">
                 <!-- Modo do Jogo: Aberto vs Com Convidado -->
@@ -164,6 +174,9 @@ export async function renderGameCreate() {
                     <div class="form-group">
                         <label class="form-label">Data do Jogo</label>
                         <input type="date" class="form-control" id="game-date" value="${draft.game_date || todayStr}" min="${todayStr}">
+                        <div style="font-size: 11px; color: var(--color-grey-text); margin-top: 4px; line-height: 1.3;">
+                            📅 Temporada do ranking: de <strong>Janeiro a 30 de Novembro</strong> (Dezembro em recesso oficial).
+                        </div>
                     </div>
 
                     <div style="display: flex; gap: var(--space-sm);">
@@ -352,6 +365,16 @@ export async function renderGameCreate() {
         }
     });
 
+    document.getElementById('game-date')?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (!val) return;
+        const parts = val.split('-');
+        if (parts.length === 3 && parseInt(parts[1], 10) === 12) {
+            alert("⚠️ Em dezembro NÃO há partidas do ranking (período de recesso oficial).\n\nA temporada ocorre de Janeiro a 30 de Novembro. A nova temporada com pontuações zeradas iniciará em Janeiro!\n\nPor favor, escolha uma data dentro da temporada regular (Janeiro a Novembro).");
+            e.target.value = '';
+        }
+    });
+
     document.getElementById('btn-draft-reserve')?.addEventListener('click', () => {
         saveCurrentFormToDraft();
         openMontrealBooking();
@@ -381,6 +404,15 @@ async function handleGameCreation(user) {
     const btn = document.getElementById('btn-submit-game');
     const mode = document.getElementById('game-mode').value;
     const alreadyConfirmed = document.getElementById('check-already-confirmed')?.checked || false;
+
+    const gameDateVal = document.getElementById('game-date').value;
+    if (gameDateVal) {
+        const dateParts = gameDateVal.split('-');
+        if (dateParts.length === 3 && parseInt(dateParts[1], 10) === 12) {
+            alert("⚠️ Em dezembro NÃO há partidas do ranking (período de recesso oficial).\n\nA temporada ocorre exclusivamente de Janeiro até 30 de Novembro. A nova temporada iniciará em Janeiro!\n\nPor favor, selecione uma data válida.");
+            return;
+        }
+    }
 
     if (mode === 'invited' && !selectedInvitedPlayer) {
         alert("Por favor, selecione um jogador recente ou faça a busca pelo número de telefone.");

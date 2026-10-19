@@ -4,7 +4,7 @@
 
 import { state } from '../state.js';
 import { db } from '../supabase.js';
-import { formatDateBR, formatTimeHM, getGameStatusLabel, isLevelEligible } from '../utils.js?v=1.5.5';
+import { formatDateBR, formatTimeHM, getGameStatusLabel, isLevelEligible } from '../utils.js?v=1.5.7';
 
 let activeMainTab = 'my_games'; // 'my_games', 'open', 'all'
 let myGamesFilter = 'all';      // 'all', 'upcoming', 'history'

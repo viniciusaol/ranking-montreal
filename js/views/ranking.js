@@ -4,13 +4,38 @@
 
 import { callRPC } from '../supabase.js';
 import { state } from '../state.js';
-import { getInitials } from '../utils.js?v=1.4.8';
+import { getInitials, getCurrentSeasonYear } from '../utils.js?v=1.5.7';
 
-const currentYear = new Date().getFullYear();
+const currentYear = getCurrentSeasonYear();
 let selectedYear = currentYear;
 let selectedLevel = 'C';
 let selectedGender = 'Masculino';
 let availableSeasons = [];
+
+function getSeasonBannerHTML(year, isCurrent) {
+    const isDecember = (new Date().getMonth() === 11);
+    if (isCurrent) {
+        if (isDecember) {
+            return `
+                <div style="font-size: 11px; font-weight: 700; color: #b45309; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px; line-height: 1.45;">
+                    <span>⏸️</span> <span><strong>Temporada ${year} Encerrada (30/11):</strong> Dezembro em recesso oficial (sem partidas do ranking). A nova temporada inicia em Janeiro com pontuações zeradas!</span>
+                </div>
+            `;
+        } else {
+            return `
+                <div style="font-size: 11px; font-weight: 700; color: #15803d; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.25); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px; line-height: 1.45;">
+                    <span>⚡</span> <span><strong>Temporada ${year} em andamento:</strong> jogos válidos de Janeiro até 30/11/${year}. Em dezembro não há partidas do ranking (recesso oficial). A nova temporada inicia em Janeiro!</span>
+                </div>
+            `;
+        }
+    } else {
+        return `
+            <div style="font-size: 11px; font-weight: 700; color: #b45309; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px; line-height: 1.45;">
+                <span>🏛️</span> <span><strong>Temporada Histórica de ${year} (Encerrada em 30/11/${year}):</strong> Classificação final e campeões consolidados do ano.</span>
+            </div>
+        `;
+    }
+}
 
 export async function renderRanking() {
     const container = document.getElementById('view-content');
@@ -58,7 +83,7 @@ export async function renderRanking() {
                         Ranking do Clube
                     </h2>
                     <p style="font-size: var(--font-size-xs); color: var(--color-grey-text);">
-                        Classificação oficial por temporada anual e categoria.
+                        Classificação oficial por temporada anual (até 30/11) e categoria.
                     </p>
                 </div>
                 
@@ -68,7 +93,7 @@ export async function renderRanking() {
                     <select id="select-ranking-season" style="border: none; background: transparent; font-size: 13px; font-weight: 800; color: var(--color-saibro); cursor: pointer; outline: none;">
                         ${availableSeasons.map(s => `
                             <option value="${s.season_year}" ${s.season_year === selectedYear ? 'selected' : ''}>
-                                Temporada ${s.season_year} ${s.is_current ? '(Atual)' : '(Histórico)'}
+                                Temporada ${s.season_year} ${s.is_current ? '(Atual • até 30/11)' : '(Histórico • até 30/11)'}
                             </option>
                         `).join('')}
                     </select>
@@ -77,15 +102,7 @@ export async function renderRanking() {
 
             <!-- Banner Informativo do Ciclo da Temporada -->
             <div id="season-status-banner" style="margin-bottom: var(--space-md);">
-                ${isCurrentSeason ? `
-                    <div style="font-size: 11px; font-weight: 700; color: #15803d; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.25); padding: 7px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px; line-height: 1.4;">
-                        <span>⚡</span> <span><strong>Temporada ${selectedYear} em andamento:</strong> pontuações válidas até 31/12/${selectedYear}. A cada virada de ano, inicia-se um novo ranking zerado!</span>
-                    </div>
-                ` : `
-                    <div style="font-size: 11px; font-weight: 700; color: #b45309; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); padding: 7px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px; line-height: 1.4;">
-                        <span>🏛️</span> <span><strong>Temporada Histórica de ${selectedYear} (Encerrada):</strong> Classificação final e campeões consolidados do ano.</span>
-                    </div>
-                `}
+                ${getSeasonBannerHTML(selectedYear, isCurrentSeason)}
             </div>
 
             <!-- Tabs de Categoria / Gênero -->
@@ -120,15 +137,7 @@ export async function renderRanking() {
         const bannerContainer = document.getElementById('season-status-banner');
         const isCurrent = (selectedYear === currentYear);
         if (bannerContainer) {
-            bannerContainer.innerHTML = isCurrent ? `
-                <div style="font-size: 11px; font-weight: 700; color: #15803d; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.25); padding: 7px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px; line-height: 1.4;">
-                    <span>⚡</span> <span><strong>Temporada ${selectedYear} em andamento:</strong> pontuações válidas até 31/12/${selectedYear}. A cada virada de ano, inicia-se um novo ranking zerado!</span>
-                </div>
-            ` : `
-                <div style="font-size: 11px; font-weight: 700; color: #b45309; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); padding: 7px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px; line-height: 1.4;">
-                    <span>🏛️</span> <span><strong>Temporada Histórica de ${selectedYear} (Encerrada):</strong> Classificação final e campeões consolidados do ano.</span>
-                </div>
-            `;
+            bannerContainer.innerHTML = getSeasonBannerHTML(selectedYear, isCurrent);
         }
 
         await loadRankingList(selectedLevel, selectedGender, selectedYear);

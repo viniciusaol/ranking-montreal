@@ -105,3 +105,22 @@ export function isLevelEligible(playerLevel, gameLevel) {
     return allowed.includes(gameLevel.toUpperCase());
 }
 
+/**
+ * Retorna o ano da temporada corrente.
+ * Regulamento Montreal: a temporada ocorre de Janeiro até 30 de Novembro.
+ * Em Dezembro o ranking fica em recesso oficial (sem partidas do ranking).
+ */
+export function getCurrentSeasonYear(date = new Date()) {
+    const d = (date instanceof Date) ? date : new Date(date);
+    return d.getFullYear();
+}
+
+/**
+ * Retorna true se a temporada do ranking está ativa (Janeiro a Novembro).
+ * Em Dezembro o ranking fica em recesso oficial.
+ */
+export function isRankingSeasonActive(date = new Date()) {
+    const d = (date instanceof Date) ? date : new Date(date);
+    return d.getMonth() !== 11; // 11 = Dezembro (0-indexed)
+}
+
