@@ -46,6 +46,12 @@ class Router {
         } else if (hash === '/jogos/abertos') {
             routeKey = '/jogos';
             params.tab = 'open';
+        } else if (hash === '/jogos/meus') {
+            routeKey = '/jogos';
+            params.tab = 'my_games';
+        } else if (hash === '/jogos/todos') {
+            routeKey = '/jogos';
+            params.tab = 'all';
         } else if (hash.startsWith('/jogos/') && hash !== '/jogos') {
             const parts = hash.split('/');
             routeKey = '/jogos/detail';
@@ -65,7 +71,7 @@ class Router {
     updateNavUI(routeKey) {
         document.querySelectorAll('.nav-item').forEach(el => {
             const route = el.getAttribute('data-route');
-            if (route === routeKey) {
+            if (route === routeKey || (routeKey === '/jogos/detail' && route === '/jogos')) {
                 el.classList.add('active');
             } else {
                 el.classList.remove('active');

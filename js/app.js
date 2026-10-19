@@ -8,13 +8,13 @@ import { loginWithPhone, checkAuth } from './auth.js';
 import { callRPC } from './supabase.js';
 import { CONFIG } from './config.js';
 
-import { renderHome } from './views/home.js?v=1.5.4';
-import { renderRanking } from './views/ranking.js?v=1.5.4';
-import { renderGameCreate } from './views/game-create.js?v=1.5.4';
-import { renderGameDetail } from './views/game-detail.js?v=1.5.4';
-import { renderMyGames } from './views/my-games.js?v=1.5.4';
-import { renderProfile } from './views/profile.js?v=1.5.4';
-import { renderAdmin } from './views/admin.js?v=1.5.4';
+import { renderHome } from './views/home.js?v=1.5.5';
+import { renderRanking } from './views/ranking.js?v=1.5.5';
+import { renderGameCreate } from './views/game-create.js?v=1.5.5';
+import { renderGameDetail } from './views/game-detail.js?v=1.5.5';
+import { renderMyGames } from './views/my-games.js?v=1.5.5';
+import { renderProfile } from './views/profile.js?v=1.5.5';
+import { renderAdmin } from './views/admin.js?v=1.5.5';
 
 // Registrar Rotas
 router.addRoute('/home', renderHome);

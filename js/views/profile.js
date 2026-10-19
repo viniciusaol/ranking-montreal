@@ -40,15 +40,27 @@ export async function renderProfile() {
                         <span style="font-size: var(--font-size-lg); font-weight: 800; color: var(--color-primary-yellow);">${user.total_points}</span>
                         <span style="display: block; font-size: 11px; color: var(--color-text-muted);">Pontos (${new Date().getFullYear()})</span>
                     </div>
-                    <div>
-                        <span style="font-size: var(--font-size-lg); font-weight: 800; color: var(--color-text-primary);">${user.total_games}</span>
-                        <span style="display: block; font-size: 11px; color: var(--color-text-muted);">Jogos</span>
+                    <div id="btn-profile-games-stat" style="cursor: pointer;" title="Ver Meus Jogos">
+                        <span style="font-size: var(--font-size-lg); font-weight: 800; color: var(--color-saibro); text-decoration: underline;">${user.total_games}</span>
+                        <span style="display: block; font-size: 11px; color: var(--color-saibro); font-weight: 700;">Jogos →</span>
                     </div>
                     <div>
                         <span style="font-size: var(--font-size-lg); font-weight: 800; color: var(--color-success);">${user.total_wins}</span>
                         <span style="display: block; font-size: 11px; color: var(--color-text-muted);">Vitórias</span>
                     </div>
                 </div>
+            </div>
+
+            <!-- Atalho Meus Jogos Exclusivos -->
+            <div class="card" id="btn-profile-my-games" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-left: 5px solid var(--color-saibro); margin-bottom: var(--space-md); transition: transform 0.15s ease;" onclick="window.location.hash='#/jogos'">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 24px; background: rgba(192, 81, 49, 0.1); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">🎾</div>
+                    <div>
+                        <div style="font-weight: 800; font-size: 14px; color: var(--color-preto);">Minhas Partidas & Histórico</div>
+                        <div style="font-size: 12px; color: var(--color-grey-text);">Ver apenas os jogos em que você está envolvido (agendados e histórico)</div>
+                    </div>
+                </div>
+                <span style="font-size: 18px; color: var(--color-saibro); font-weight: 800;">→</span>
             </div>
 
             <!-- Editar Dados Esportivos -->
@@ -87,6 +99,10 @@ export async function renderProfile() {
             </button>
         </div>
     `;
+
+    document.getElementById('btn-profile-games-stat')?.addEventListener('click', () => {
+        window.location.hash = '#/jogos';
+    });
 
     document.getElementById('profile-level')?.addEventListener('change', (e) => {
         const selected = e.target.value;

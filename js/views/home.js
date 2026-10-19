@@ -46,9 +46,12 @@ export async function renderHome() {
                     <div>
                         <span style="font-size: var(--font-size-xs); color: var(--color-grey-text); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Bem-vindo(a)</span>
                         <h2 style="font-size: var(--font-size-xl); font-weight: 800; margin-top: 2px; color: var(--color-preto);">${user.display_name}</h2>
-                        <div style="display: flex; gap: var(--space-xs); margin-top: var(--space-xs);">
+                        <div style="display: flex; gap: var(--space-xs); margin-top: var(--space-xs); flex-wrap: wrap;">
                             <span class="badge badge-level-${user.current_level}">Nível ${user.current_level}</span>
                             <span class="badge badge-success">Posição #${user.rank_position} (${new Date().getFullYear()})</span>
+                            <span class="badge" style="background: rgba(192, 81, 49, 0.1); color: var(--color-saibro); font-weight: 800; cursor: pointer;" onclick="window.location.hash='#/jogos'">
+                                🎾 Meus Jogos →
+                            </span>
                         </div>
                     </div>
                     <div style="text-align: right;">
