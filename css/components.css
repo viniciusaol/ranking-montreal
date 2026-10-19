@@ -1,0 +1,272 @@
+/* ====================================================================
+   MONTREAL TÊNIS CLUBE - COMPONENTES (QUADRAS VAZIAS THEME)
+   ==================================================================== */
+
+/* Header Mobile Minimalista */
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  background: rgba(241, 244, 224, 0.88);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  border-bottom: 1px solid rgba(226, 230, 197, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-md);
+  z-index: 100;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.header-logo {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+
+.auth-logo {
+  max-height: 48px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: var(--space-md);
+  filter: drop-shadow(0 2px 5px rgba(25, 25, 25, 0.05));
+}
+
+.header-user-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--color-grey-border);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-preto);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* Bottom Navigation Bar (Polegar) */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--bottom-nav-height);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  border-top: 1px solid var(--color-grey-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--color-grey-text);
+  font-size: 11px;
+  font-weight: 600;
+  width: 20%;
+  height: 100%;
+  transition: var(--transition-smooth);
+}
+
+.nav-item .nav-icon {
+  font-size: 20px;
+}
+
+.nav-item.active {
+  color: var(--color-saibro);
+  font-weight: 800;
+}
+
+.nav-item-highlight {
+  position: relative;
+  top: -12px;
+  background: linear-gradient(135deg, var(--color-saibro), var(--color-saibro-hover));
+  color: #FFFFFF !important;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  box-shadow: 0 8px 20px rgba(192, 81, 49, 0.35);
+  font-weight: 800 !important;
+}
+
+.nav-item-highlight .nav-icon {
+  font-size: 24px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  text-align: center;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 12px rgba(25, 25, 25, 0.05);
+}
+
+.btn-primary {
+  background-color: var(--color-saibro);
+  color: #FFFFFF;
+}
+.btn-primary:hover, .btn-primary:active {
+  background-color: var(--color-saibro-hover);
+  transform: translateY(-1px);
+}
+
+.btn-booking {
+  background-color: var(--color-booking-blue);
+  color: #FFFFFF;
+}
+.btn-booking:hover, .btn-booking:active {
+  background-color: var(--color-booking-blue-hover);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background-color: #FFFFFF;
+  color: var(--color-preto);
+  border: 1.5px solid var(--color-grey-border);
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+}
+
+/* Glassmorphic Cards (Mesmo visual de Quadras Vazias) */
+.card {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-lg);
+  padding: 22px 20px;
+  margin-bottom: var(--space-md);
+  box-shadow: var(--box-shadow-premium);
+}
+
+.card-title {
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  color: var(--color-preto);
+  margin-bottom: var(--space-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.badge-level-A { background-color: rgba(220, 53, 69, 0.1); color: #DC3545; border: 1px solid rgba(220, 53, 69, 0.2); }
+.badge-level-B { background-color: rgba(230, 126, 34, 0.1); color: #E67E22; border: 1px solid rgba(230, 126, 34, 0.2); }
+.badge-level-C { background-color: rgba(41, 128, 185, 0.1); color: #2980B9; border: 1px solid rgba(41, 128, 185, 0.2); }
+.badge-level-D { background-color: rgba(40, 167, 69, 0.1); color: #28A745; border: 1px solid rgba(40, 167, 69, 0.2); }
+
+.badge-success { background-color: rgba(40, 167, 69, 0.1); color: #28A745; }
+.badge-warning { background-color: rgba(230, 126, 34, 0.1); color: #E67E22; }
+
+/* Inputs & Form Fields */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-preto);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-control {
+  width: 100%;
+  padding: 14px 16px;
+  font-family: var(--font-family-base);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-preto);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid var(--color-grey-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: var(--transition-smooth);
+}
+
+.form-control:focus {
+  border-color: var(--color-saibro);
+  box-shadow: 0 0 0 4px var(--color-saibro-light);
+  background: #ffffff;
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(25, 25, 25, 0.4);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  padding: 20px;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-lg);
+  padding: 35px 28px;
+  box-shadow: var(--box-shadow-premium);
+}

@@ -1,0 +1,119 @@
+{
+  "name": "Montreal Ranking - Aviso de Partida Aberta no WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "partida-aberta-montreal",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "Webhook - Nova Partida Aberta",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ],
+      "webhookId": "montreal-open-game-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrai os dados enviados pelo app\nconst data = $input.first().json.body || $input.first().json;\n\nconst creatorName = data.creator_name || 'Tenista da Montreal';\nconst level = data.level || 'C';\nconst gender = data.gender_category || 'Masculino';\nconst date = data.friendly_date || data.game_date || 'A definir';\nconst time = data.friendly_time || data.start_time || '18:00';\nconst duration = data.duration_minutes ? `${data.duration_minutes} min` : '60 min';\nconst gameId = data.game_id || '';\nconst gameLink = data.game_link || `https://montreal-ranking.app/#/jogos/${gameId}`;\n\n// Determina quais níveis são elegíveis para disputar\nlet allowedText = 'Jogadores de Nível ' + level;\nif (level === 'A') allowedText = 'Jogadores de Nível A e B';\nelse if (level === 'B') allowedText = 'Jogadores de Nível B e C';\nelse if (level === 'C') allowedText = 'Jogadores de Nível C e D';\nelse if (level === 'D') allowedText = 'Jogadores de Nível D';\n\nconst message = `🎾 *NOVO DESAFIO ABERTO NO RANKING!*\\n\\n👤 *Criador:* ${creatorName}\\n🏆 *Nível da Partida:* Nível ${level} (${gender})\\n👥 *Quem pode entrar:* ${allowedText}\\n📅 *Data:* ${date} às ${time}\\n⏱️ *Duração:* ${duration}\\n🎾 *Formato:* 1 Set até 8 games (No-Ad)\\n📍 *Local:* Montreal Tênis Clube\\n\\nQuem topa o desafio? Acesse o link abaixo e clique em *\"Entrar na Partida\"*:\\n👉 ${gameLink}`;\n\nreturn [{\n  json: {\n    number: \"120363428928893345@g.us\",\n    text: message,\n    game_id: gameId,\n    creator: creatorName,\n    level: level\n  }\n}];"
+      },
+      "id": "node-format-message",
+      "name": "Formatar Mensagem WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://montrealtenis.uazapi.com/send/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "4a87a0fd-84b0-404d-83e3-de5d2d7d0022"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"text\": \"{{ $json.text }}\"\n}",
+        "options": {}
+      },
+      "id": "node-uazapi-send",
+      "name": "Enviar no Grupo via Uazapi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Notificação enviada ao grupo do Ranking Montreal com sucesso!\",\n  \"group_jid\": \"120363428928893345@g.us\"\n}",
+        "options": {}
+      },
+      "id": "node-respond-webhook",
+      "name": "Responder Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        980,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Nova Partida Aberta": {
+      "main": [
+        [
+          {
+            "node": "Formatar Mensagem WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Mensagem WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Enviar no Grupo via Uazapi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar no Grupo via Uazapi": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

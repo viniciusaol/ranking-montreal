@@ -1,0 +1,176 @@
+/* ====================================================================
+   MONTREAL TÊNIS CLUBE - ESTILOS DAS VIEWS (QUADRAS VAZIAS THEME)
+   ==================================================================== */
+
+.app-main {
+  flex: 1;
+  padding-top: calc(var(--header-height) + var(--space-md));
+  padding-bottom: calc(var(--bottom-nav-height) + var(--space-md));
+  padding-left: var(--space-md);
+  padding-right: var(--space-md);
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.view-container {
+  display: none;
+  animation: fadeIn 0.25s ease;
+}
+
+.view-container.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Ranking View */
+.ranking-tabs {
+  display: flex;
+  background-color: #FFFFFF;
+  border: 1px solid var(--color-grey-border);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  margin-bottom: var(--space-md);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px 0;
+  text-align: center;
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  color: var(--color-grey-text);
+  transition: all var(--transition-fast);
+}
+
+.tab-btn.active {
+  background-color: var(--color-saibro);
+  color: #FFFFFF;
+}
+
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ranking-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  background-color: #FFFFFF;
+  border: 1px solid var(--color-grey-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.ranking-pos {
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  width: 32px;
+  text-align: center;
+  color: var(--color-saibro);
+}
+
+.ranking-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-creme);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: var(--font-size-md);
+  color: var(--color-saibro);
+  border: 1px solid var(--color-grey-border);
+}
+
+.ranking-info {
+  flex: 1;
+}
+
+.ranking-name {
+  font-weight: 800;
+  font-size: var(--font-size-base);
+  color: var(--color-preto);
+}
+
+.ranking-stats {
+  font-size: var(--font-size-xs);
+  color: var(--color-grey-text);
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: 2px;
+}
+
+.ranking-points {
+  font-weight: 800;
+  font-size: var(--font-size-lg);
+  color: var(--color-saibro);
+}
+
+/* Court Availability Slots */
+.court-slot-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #FFFFFF;
+  border: 1px solid var(--color-grey-border);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-sm);
+}
+
+.court-slot-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.court-slot-time {
+  font-weight: 800;
+  font-size: var(--font-size-base);
+  color: var(--color-saibro);
+}
+
+.court-slot-name {
+  font-size: var(--font-size-xs);
+  color: var(--color-grey-text);
+}
+
+/* Auth Screen */
+.auth-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.auth-title {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  color: var(--color-saibro);
+  margin-bottom: var(--space-xs);
+}
+
+.auth-subtitle {
+  color: var(--color-grey-text);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.auth-box {
+  width: 100%;
+  background-color: #FFFFFF;
+  border: 1px solid var(--color-grey-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+}

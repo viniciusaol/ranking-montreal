@@ -1,0 +1,17 @@
+{
+  "name": "Montreal Ranking & Jogos",
+  "short_name": "Montreal Ranking",
+  "description": "Aplicação de ranking, organização de jogos e reserva de quadras da Montreal Tênis Clube",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0F141C",
+  "theme_color": "#FFC700",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./assets/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

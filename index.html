@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Montreal Ranking & Jogos</title>
+  
+  <!-- PWA Metadata & Colors -->
+  <meta name="theme-color" content="#191919">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Montreal Ranking">
+  <link rel="manifest" href="./manifest.webmanifest">
+  
+  <!-- Fonts (Hanken Grotesk) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/views.css">
+
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- Header Superior Mobile -->
+  <header class="app-header safe-padding-top">
+    <div class="header-brand">
+      <img src="./assets/logo_superhorizontal.png" alt="Montreal Tênis Clube" class="header-logo">
+    </div>
+    <div class="header-user-badge" id="header-badge-container">
+      <span id="header-user-name">Carregando...</span>
+      <span style="color: var(--color-saibro);" id="header-user-level">•</span>
+    </div>
+  </header>
+
+  <!-- Container de Conteúdo Dinâmico das Views -->
+  <main class="app-main" id="view-content">
+    <!-- Views injetadas via JS -->
+  </main>
+
+  <!-- Navegação Inferior Fixa (Polegar) -->
+  <nav class="bottom-nav safe-padding-bottom">
+    <button class="nav-item active" data-route="/home">
+      <span class="nav-icon">🏠</span>
+      <span>Início</span>
+    </button>
+    <button class="nav-item" data-route="/ranking">
+      <span class="nav-icon">📊</span>
+      <span>Ranking</span>
+    </button>
+    <button class="nav-item nav-item-highlight" data-route="/jogos/criar">
+      <span class="nav-icon">➕</span>
+    </button>
+    <button class="nav-item" data-route="/jogos">
+      <span class="nav-icon">🎾</span>
+      <span>Jogos</span>
+    </button>
+    <button class="nav-item" data-route="/perfil">
+      <span class="nav-icon">👤</span>
+      <span>Perfil</span>
+    </button>
+  </nav>
+
+  <!-- Modal Overlay de Login Privado por Telefone -->
+  <div class="modal-overlay" id="auth-modal-overlay">
+    <div class="modal-sheet">
+      <div class="auth-wrapper">
+        <img src="./assets/logo_horizontal.png" alt="Montreal Tênis Clube" class="auth-logo">
+        <h1 class="auth-title">Montreal Ranking</h1>
+        <p class="auth-subtitle">Exclusivo para Alunos e Mensalistas da Montreal Tênis Clube.</p>
+
+        <div class="auth-box">
+          <form id="form-login-phone">
+            <div class="form-group" style="text-align: left;">
+              <label class="form-label">Seu Telefone Cadastrado (com DDD)</label>
+              <input type="tel" class="form-control" id="login-phone-number" placeholder="(41) 99999-9999" maxlength="15" required autofocus>
+            </div>
+
+            <div id="auth-error-msg" style="color: var(--color-danger); font-size: var(--font-size-xs); display: none; margin-bottom: var(--space-md); text-align: left;"></div>
+
+            <button type="submit" class="btn btn-primary" id="btn-submit-login">
+              Entrar no Aplicativo
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Overlay de Conclusão e Confirmação do Cadastro (Onboarding) -->
+  <div class="modal-overlay" id="onboarding-modal-overlay">
+    <div class="modal-sheet">
+      <div style="text-align: center;">
+        <span style="font-size: var(--font-size-xs); color: var(--color-saibro); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Primeiro Acesso</span>
+        <h2 style="font-size: var(--font-size-xl); font-weight: 800; color: var(--color-preto); margin-top: 4px;">Confirmação do Perfil</h2>
+        <p style="font-size: var(--font-size-xs); color: var(--color-grey-text); margin-bottom: var(--space-md);">
+          Confirme seus dados esportivos para desbloquear o ranking e a criação de jogos.
+        </p>
+
+        <form id="form-onboarding">
+          <div class="form-group" style="text-align: left;">
+            <label class="form-label">Nome Exibido no Ranking</label>
+            <input type="text" class="form-control" id="onboarding-name" required>
+          </div>
+
+          <div class="form-group" style="text-align: left;">
+            <label class="form-label">Seu Nível Inicial de Jogo</label>
+            <select class="form-control" id="onboarding-level" required>
+              <option value="A">Nível A — Competitivo / Experiente</option>
+              <option value="B">Nível B — Avançado / Ritmo Forte</option>
+              <option value="C" selected>Nível C — Intermediário / Partidas Completas</option>
+              <option value="D">Nível D — Iniciante / Em Evolução</option>
+            </select>
+          </div>
+
+          <div id="onboarding-level-desc" style="font-size: 12px; color: var(--color-grey-text); background: rgba(0,0,0,0.03); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: left; line-height: 1.3;">
+            Jogador intermediário. Conhece regras e contagem, joga partidas completas, troca regular de fundo.
+          </div>
+
+          <div class="form-group" style="text-align: left;">
+            <label class="form-label">Categoria de Ranking (Gênero)</label>
+            <select class="form-control" id="onboarding-gender" required>
+              <option value="Masculino" selected>🎾 Ranking Masculino</option>
+              <option value="Feminino">🎾 Ranking Feminino</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="text-align: left;">
+            <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; text-transform: none; font-weight: 500; cursor: pointer;">
+              <input type="checkbox" id="onboarding-terms" checked required style="margin-top: 2px;">
+              <span>Concordo com os Termos de Uso, Política de Privacidade e exibição do meu perfil esportivo na Montreal.</span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="btn-save-onboarding">
+            Salvar e Concluir Cadastro
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Entry Script (ES Module) -->
+  <script type="module" src="./js/app.js?v=1.5.1"></script>
+</body>
+</html>

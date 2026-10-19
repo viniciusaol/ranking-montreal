@@ -1,0 +1,64 @@
+/* ====================================================================
+   MONTREAL TÊNIS CLUBE - VISUAL IDENTITY SYSTEM (QUADRAS VAZIAS THEME)
+   ==================================================================== */
+
+:root {
+  /* Brand Colors */
+  --color-saibro: #C05131;
+  --color-saibro-hover: #A43F22;
+  --color-saibro-light: rgba(192, 81, 49, 0.08);
+  --color-creme: #f1f4e0;
+  --color-creme-dark: #e2e6c5;
+  --color-preto: #191919;
+  --color-grey-light: #f8f9fa;
+  --color-grey-border: #e9ecef;
+  --color-grey-text: #6c757d;
+  --color-success: #28a745;
+
+  --color-bg-dark: var(--color-creme);
+  --color-bg-card: rgba(255, 255, 255, 0.88);
+  --color-bg-card-hover: #ffffff;
+  --color-bg-input: rgba(255, 255, 255, 0.95);
+  --color-border: var(--color-grey-border);
+  --color-border-focus: var(--color-saibro);
+
+  --color-text-primary: var(--color-preto);
+  --color-text-secondary: var(--color-grey-text);
+  --color-text-muted: #888888;
+  --color-text-dark: var(--color-preto);
+
+  --color-booking-blue: #2980b9;
+  --color-booking-blue-hover: #1f618d;
+
+  /* Typography */
+  --font-family-base: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-size-xs: 0.75rem;     /* 12px */
+  --font-size-sm: 0.875rem;    /* 14px */
+  --font-size-base: 1rem;      /* 16px */
+  --font-size-lg: 1.125rem;    /* 18px */
+  --font-size-xl: 1.25rem;     /* 20px */
+  --font-size-2xl: 1.5rem;     /* 24px */
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* Border Radii & Shadow */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  --box-shadow-premium: 0 15px 35px rgba(25, 25, 25, 0.08), 0 5px 15px rgba(25, 25, 25, 0.03);
+  --shadow-sm: 0 4px 12px rgba(25, 25, 25, 0.05);
+  --shadow-md: var(--box-shadow-premium);
+
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 0.2s ease;
+
+  --header-height: 60px;
+  --bottom-nav-height: 64px;
+}
