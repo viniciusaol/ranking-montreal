@@ -793,35 +793,47 @@ function renderPodiumsTab(container) {
 
     container.innerHTML = `
         <div style="margin-bottom: 12px;">
-            <!-- Barra de Ações Compartilháveis -->
-            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <!-- Barra de Ações Compartilháveis (Mesmo Tamanho e Altura) -->
+            <div style="display: flex; align-items: stretch; gap: 10px; margin-bottom: 16px;">
                 <button class="btn btn-primary" id="btn-share-podiums-story" style="
-                    flex: 1;
+                    flex: 1 1 0;
+                    min-height: 48px;
                     font-size: 13px;
                     font-weight: 800;
-                    padding: 11px 16px;
+                    padding: 10px 12px;
                     background: linear-gradient(135deg, #E1306C, #C13584, #833AB4);
                     border: none;
+                    border-radius: var(--radius-md);
                     box-shadow: 0 4px 14px rgba(193, 53, 132, 0.35);
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    text-align: center;
+                    line-height: 1.25;
                     gap: 6px;
                 ">
-                    <span>📸</span> Compartilhar Story
+                    <span style="font-size: 16px;">📸</span>
+                    <span>Compartilhar Story</span>
                 </button>
                 <button class="btn btn-secondary" id="btn-share-podiums-whatsapp" style="
+                    flex: 1 1 0;
+                    min-height: 48px;
                     font-size: 13px;
-                    font-weight: 700;
-                    padding: 11px 16px;
-                    border-color: #25d366;
+                    font-weight: 800;
+                    padding: 10px 12px;
+                    border: 1.5px solid #22c55e;
+                    border-radius: var(--radius-md);
                     color: #15803d;
                     background: #f0fdf4;
                     display: flex;
                     align-items: center;
+                    justify-content: center;
+                    text-align: center;
+                    line-height: 1.25;
                     gap: 6px;
                 ">
-                    <span>💬</span> WhatsApp
+                    <span style="font-size: 16px;">💬</span>
+                    <span>WhatsApp</span>
                 </button>
             </div>
 
@@ -940,35 +952,47 @@ function renderRecordsTab(container) {
 
     container.innerHTML = `
         <div>
-            <!-- Barra de Ações Compartilháveis -->
-            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <!-- Barra de Ações Compartilháveis (Mesmo Tamanho e Altura) -->
+            <div style="display: flex; align-items: stretch; gap: 10px; margin-bottom: 16px;">
                 <button class="btn btn-primary" id="btn-share-records-story" style="
-                    flex: 1;
+                    flex: 1 1 0;
+                    min-height: 48px;
                     font-size: 13px;
                     font-weight: 800;
-                    padding: 11px 16px;
+                    padding: 10px 12px;
                     background: linear-gradient(135deg, #E1306C, #C13584, #833AB4);
                     border: none;
+                    border-radius: var(--radius-md);
                     box-shadow: 0 4px 14px rgba(193, 53, 132, 0.35);
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    text-align: center;
+                    line-height: 1.25;
                     gap: 6px;
                 ">
-                    <span>📸</span> Compartilhar Story
+                    <span style="font-size: 16px;">📸</span>
+                    <span>Compartilhar Story</span>
                 </button>
                 <button class="btn btn-secondary" id="btn-share-records-whatsapp" style="
+                    flex: 1 1 0;
+                    min-height: 48px;
                     font-size: 13px;
-                    font-weight: 700;
-                    padding: 11px 16px;
-                    border-color: #25d366;
+                    font-weight: 800;
+                    padding: 10px 12px;
+                    border: 1.5px solid #22c55e;
+                    border-radius: var(--radius-md);
                     color: #15803d;
                     background: #f0fdf4;
                     display: flex;
                     align-items: center;
+                    justify-content: center;
+                    text-align: center;
+                    line-height: 1.25;
                     gap: 6px;
                 ">
-                    <span>💬</span> WhatsApp
+                    <span style="font-size: 16px;">💬</span>
+                    <span>WhatsApp</span>
                 </button>
             </div>
 
