@@ -513,4 +513,85 @@ export async function processPendingScoreReminders() {
     }
 }
 
+/**
+ * Envia o código de segurança (OTP) de 6 dígitos diretamente para o WhatsApp do atleta
+ * para validação de identidade no login do aplicativo.
+ */
+export async function sendAuthCodeWhatsApp(whatsappNumber, name, code) {
+    if (!CONFIG.NOTIFICATIONS || !CONFIG.NOTIFICATIONS.ENABLED) {
+        return { success: false, reason: 'Notifications disabled' };
+    }
+
+    const targetNumber = formatWhatsAppNumber(whatsappNumber);
+    if (!targetNumber) {
+        return { success: false, reason: 'Número de WhatsApp inválido' };
+    }
+
+    const firstName = (name || 'Atleta').trim().split(' ')[0];
+    const messageText = 
+`🎾 *CÓDIGO DE ACESSO - RANKING MONTREAL* 🎾
+
+Olá, *${firstName}*!
+Seu código de segurança para entrar no aplicativo do Ranking é:
+
+🔑 *${code}*
+
+_(Válido por 10 minutos. Nunca compartilhe este código com ninguém)._`;
+
+    const payload = {
+        event: 'auth_otp',
+        target_phone: targetNumber,
+        athlete_name: name,
+        code: code,
+        formatted_message: messageText
+    };
+
+    let notificationStatus = 'pending';
+
+    try {
+        if (CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL && CONFIG.NOTIFICATIONS.UAZAPI_TOKEN) {
+            const endpoint = `${CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL.replace(/\/+$/, '')}/send/text`;
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'token': CONFIG.NOTIFICATIONS.UAZAPI_TOKEN
+                },
+                body: JSON.stringify({
+                    number: targetNumber,
+                    text: messageText
+                })
+            });
+
+            if (resp.ok) {
+                notificationStatus = 'sent';
+            } else {
+                const errData = await resp.json().catch(() => ({}));
+                console.warn('Erro ao disparar código WhatsApp via Uazapi:', errData);
+                notificationStatus = 'failed';
+            }
+        }
+    } catch (err) {
+        console.error('Falha de rede ao disparar código WhatsApp:', err);
+        notificationStatus = 'error';
+    }
+
+    try {
+        await db.from('mt_game_notifications').insert({
+            event_type: 'auth_otp',
+            payload: payload,
+            status: notificationStatus,
+            sent_at: notificationStatus === 'sent' ? new Date().toISOString() : null
+        });
+    } catch (dbErr) {
+        console.warn('Erro ao gravar log de código no banco:', dbErr);
+    }
+
+    return { 
+        success: notificationStatus === 'sent', 
+        status: notificationStatus 
+    };
+}
+
+
 

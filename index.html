@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="./css/variables.css?v=1.6.2">
   <link rel="stylesheet" href="./css/reset.css?v=1.6.2">
   <link rel="stylesheet" href="./css/components.css?v=1.6.2">
-  <link rel="stylesheet" href="./css/views.css?v=1.6.2">
+  <link rel="stylesheet" href="./css/views.css?v=1.8.0">
 
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -67,7 +67,7 @@
     </button>
   </nav>
 
-  <!-- Modal Overlay de Login Privado por Telefone -->
+  <!-- Modal Overlay de Login Privado por Telefone com Verificação WhatsApp (OTP) -->
   <div class="modal-overlay" id="auth-modal-overlay">
     <div class="modal-sheet">
       <div class="auth-wrapper">
@@ -76,18 +76,53 @@
         <p class="auth-subtitle">Exclusivo para Alunos e Mensalistas da Montreal Tênis Clube.</p>
 
         <div class="auth-box">
-          <form id="form-login-phone">
-            <div class="form-group" style="text-align: left;">
-              <label class="form-label">Seu Telefone Cadastrado (com DDD)</label>
-              <input type="tel" class="form-control" id="login-phone-number" placeholder="(41) 99999-9999" maxlength="15" required autofocus>
+          <!-- Etapa 1: Telefone Cadastrado -->
+          <div id="auth-step-phone">
+            <form id="form-login-phone">
+              <div class="form-group" style="text-align: left;">
+                <label class="form-label">Seu Telefone Cadastrado (com DDD)</label>
+                <input type="tel" class="form-control" id="login-phone-number" placeholder="(41) 99999-9999" maxlength="15" required autofocus>
+                <span style="font-size: 11px; color: var(--color-grey-text); display: block; margin-top: 6px;">
+                  📱 Enviaremos um código de 6 dígitos via WhatsApp para validar seu acesso com segurança.
+                </span>
+              </div>
+
+              <div id="auth-error-msg" style="color: var(--color-danger); font-size: var(--font-size-xs); display: none; margin-bottom: var(--space-md); text-align: left;"></div>
+
+              <button type="submit" class="btn btn-primary" id="btn-submit-login">
+                Receber Código no WhatsApp
+              </button>
+            </form>
+          </div>
+
+          <!-- Etapa 2: Código de Segurança (OTP) -->
+          <div id="auth-step-code" style="display: none;">
+            <div style="text-align: center; margin-bottom: var(--space-md);">
+              <span style="font-size: var(--font-size-xs); color: var(--color-grey-text); display: block;">Código enviado para o WhatsApp de:</span>
+              <div class="auth-phone-pill" id="auth-phone-display">📱 (41) 98873-1963</div>
             </div>
 
-            <div id="auth-error-msg" style="color: var(--color-danger); font-size: var(--font-size-xs); display: none; margin-bottom: var(--space-md); text-align: left;"></div>
+            <form id="form-login-code">
+              <div class="form-group" style="text-align: center;">
+                <label class="form-label" style="text-align: center; display: block; margin-bottom: 6px;">Digite o código de 6 dígitos</label>
+                <input type="text" class="form-control auth-code-input" id="login-auth-code" maxlength="6" inputmode="numeric" placeholder="000000" autocomplete="one-time-code" required>
+                <span style="font-size: 11px; color: var(--color-grey-text); display: block; margin-top: 8px;">
+                  ⏱️ Válido por 10 minutos. Confira as mensagens da Montreal no WhatsApp.
+                </span>
+              </div>
 
-            <button type="submit" class="btn btn-primary" id="btn-submit-login">
-              Entrar no Aplicativo
-            </button>
-          </form>
+              <div id="auth-code-error-msg" style="color: var(--color-danger); font-size: var(--font-size-xs); display: none; margin-bottom: var(--space-md); text-align: center;"></div>
+
+              <button type="submit" class="btn btn-primary" id="btn-submit-code" style="width: 100%;">
+                Confirmar e Entrar
+              </button>
+
+              <div class="auth-resend-row">
+                <button type="button" class="auth-link-btn" id="btn-back-to-phone">← Trocar telefone</button>
+                <button type="button" class="auth-link-btn" id="btn-resend-code">Reenviar código</button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>
@@ -147,6 +182,6 @@
   </div>
 
   <!-- Entry Script (ES Module) -->
-  <script type="module" src="./js/app.js?v=1.7.0"></script>
+  <script type="module" src="./js/app.js?v=1.8.0"></script>
 </body>
 </html>

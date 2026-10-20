@@ -181,3 +181,74 @@
   padding: var(--space-lg);
   box-shadow: var(--shadow-sm);
 }
+
+/* Auth Screen - 2-Step OTP */
+.auth-code-input {
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  letter-spacing: 12px !important;
+  text-align: center !important;
+  padding: 12px var(--space-md) !important;
+  font-family: monospace, inherit !important;
+  border: 2px solid var(--color-saibro) !important;
+  background-color: #FAFAF9 !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--color-preto) !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.auth-code-input:focus {
+  background-color: #FFFFFF !important;
+  border-color: var(--color-saibro) !important;
+  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.2) !important;
+  outline: none !important;
+}
+
+.auth-phone-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(194, 65, 12, 0.08);
+  color: var(--color-saibro);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin-top: 6px;
+  border: 1px solid rgba(194, 65, 12, 0.15);
+}
+
+.auth-resend-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-md);
+  font-size: var(--font-size-xs);
+  gap: var(--space-sm);
+}
+
+.auth-link-btn {
+  background: none;
+  border: none;
+  color: var(--color-saibro);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 4px;
+  text-decoration: underline;
+  font-size: var(--font-size-xs);
+  transition: opacity 0.2s ease;
+}
+
+.auth-link-btn:hover {
+  opacity: 0.8;
+}
+
+.auth-link-btn:disabled {
+  color: var(--color-grey-text);
+  cursor: not-allowed;
+  text-decoration: none;
+  opacity: 0.5;
+}
+
