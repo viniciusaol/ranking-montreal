@@ -188,6 +188,41 @@ export async function renderGameDetail(params) {
                     </div>
                 ` : ''}
 
+                <!-- Status de Convite Direto para o Convidado Aceitar / Recusar -->
+                ${myParticipant && myParticipant.invite_status === 'pending' && !latestResult ? `
+                    <div class="card" style="background: #f0fdf4; border: 2px solid #22c55e; text-align: center; padding: 22px 16px; margin-bottom: var(--space-md); box-shadow: 0 4px 14px rgba(34, 197, 94, 0.15);">
+                        <div style="font-size: 34px; margin-bottom: 6px;">✉️</div>
+                        <h2 style="font-size: 18px; font-weight: 800; color: #15803d; margin-bottom: 6px;">
+                            ${creatorFirstName} Convidou Você para Jogar!
+                        </h2>
+                        <p style="font-size: 13px; color: #166534; margin-bottom: 16px; line-height: 1.45;">
+                            Esta partida foi agendada diretamente com você. Confirme sua presença para oficializar a partida no Ranking Montreal!
+                        </p>
+                        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                            <button class="btn btn-primary" id="btn-accept-direct-invite" style="font-size: 15px; font-weight: 800; padding: 12px 24px; background: #16a34a; border-color: #16a34a; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35); cursor: pointer;">
+                                ✅ Aceitar Convite
+                            </button>
+                            <button class="btn btn-secondary" id="btn-decline-direct-invite" style="font-size: 13px; font-weight: 700; padding: 12px 20px; color: var(--color-danger); border-color: rgba(220, 53, 69, 0.4); cursor: pointer;">
+                                ✕ Não posso jogar
+                            </button>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Status de Convite Direto para o Criador (quando aguardando confirmação do convidado) -->
+                ${isCreator && game.status === 'awaiting_confirmation' && !latestResult ? `
+                    <div class="card" style="background: rgba(245, 158, 11, 0.08); border: 2px solid #f59e0b; text-align: center; padding: 20px 16px; margin-bottom: var(--space-md); border-radius: var(--radius-md);">
+                        <div style="font-size: 32px; margin-bottom: 6px;">⏳</div>
+                        <h3 style="font-size: 16px; font-weight: 800; color: #b45309; margin-bottom: 6px;">
+                            Aguardando Confirmação de ${opponentFirstName}
+                        </h3>
+                        <p style="font-size: 13px; color: var(--color-preto); margin-bottom: 8px; line-height: 1.45;">
+                            Uma notificação exclusiva com o link desta partida foi enviada diretamente no WhatsApp de <strong>${opponentName}</strong>.<br>
+                            A partida ficará com status <em>Confirmada</em> assim que o atleta aceitar pelo app!
+                        </p>
+                    </div>
+                ` : ''}
+
                 ${!isJoined && (game.status !== 'open' || (participants?.length || 0) >= 2) && !latestResult ? `
                     <div class="card" style="text-align: center; color: var(--color-grey-text); font-size: 12px; padding: var(--space-md); margin-bottom: var(--space-md); background: rgba(0,0,0,0.02);">
                         🔒 Esta partida já possui jogadores definidos. Apenas os participantes registrados podem lançar o placar.
@@ -612,6 +647,52 @@ export async function renderGameDetail(params) {
                     btn.disabled = false;
                     btn.textContent = '🎾 Entrar na Partida';
                 }
+            }
+        });
+
+        // Listener para aceitar convite direto
+        document.getElementById('btn-accept-direct-invite')?.addEventListener('click', async () => {
+            const btn = document.getElementById('btn-accept-direct-invite');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Confirmando presença...';
+            }
+            try {
+                await db.from('mt_game_participants')
+                    .update({ invite_status: 'accepted' })
+                    .eq('game_id', gameId)
+                    .eq('customer_code', user.customer_code);
+
+                await db.from('mt_games').update({ status: 'confirmed' }).eq('id', gameId);
+
+                alert(`Convite aceito com sucesso!\n\nA partida entre você e ${creatorName} está confirmada no Ranking Montreal.`);
+                renderGameDetail(params);
+            } catch (errAcc) {
+                console.error("Erro ao aceitar convite:", errAcc);
+                alert("Erro ao aceitar convite: " + errAcc.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '✅ Aceitar Convite';
+                }
+            }
+        });
+
+        // Listener para recusar convite direto
+        document.getElementById('btn-decline-direct-invite')?.addEventListener('click', async () => {
+            if (!confirm(`Deseja recusar o convite para esta partida?`)) return;
+            try {
+                await db.from('mt_game_participants')
+                    .delete()
+                    .eq('game_id', gameId)
+                    .eq('customer_code', user.customer_code);
+
+                await db.from('mt_games').update({ status: 'cancelled' }).eq('id', gameId);
+
+                alert("Convite recusado. A partida foi cancelada.");
+                window.location.hash = '#/jogos';
+            } catch (errDec) {
+                console.error("Erro ao recusar convite:", errDec);
+                alert("Erro ao recusar convite: " + errDec.message);
             }
         });
 

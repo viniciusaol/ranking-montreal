@@ -5,7 +5,7 @@
 import { state } from '../state.js';
 import { db, callRPC } from '../supabase.js';
 import { openMontrealBooking, getAllowedGameLevels, isLevelEligible, LEVEL_LABELS, isRankingSeasonActive } from '../utils.js?v=1.5.7';
-import { notifyOpenGameCreated } from '../notifications.js?v=1.5.0';
+import { notifyOpenGameCreated, notifyDirectGameInvite } from '../notifications.js?v=1.6.9';
 
 let selectedInvitedPlayer = null;
 
@@ -331,7 +331,8 @@ export async function renderGameCreate() {
                 selectedInvitedPlayer = {
                     customer_code: foundData.customer_code,
                     display_name: foundData.display_name,
-                    current_level: foundData.current_level
+                    current_level: foundData.current_level,
+                    phone: phone
                 };
 
                 document.getElementById('invited-player-name').textContent = `✅ Jogador Localizado: ${foundData.display_name}`;
@@ -462,19 +463,29 @@ async function handleGameCreation(user) {
                 invite_status: alreadyConfirmed ? 'accepted' : 'pending'
             });
 
-            if (!alreadyConfirmed) {
-                // Enfileira notificação para o convidado confirmar via WhatsApp/App
-                await db.from('mt_game_notifications').insert({
-                    customer_code: selectedInvitedPlayer.customer_code,
-                    event_type: 'invite',
-                    game_id: game.id,
-                    payload: {
-                        creator_name: user.display_name,
-                        game_date: game.game_date,
-                        start_time: game.start_time
-                    }
-                });
+            // Garante que temos o telefone do convidado buscando no cadastro caso não tenha vindo da busca
+            let invitedPhone = selectedInvitedPlayer.phone;
+            if (!invitedPhone) {
+                try {
+                    const { data: cData } = await db.from('mt_clientes')
+                        .select('mobile_normalizado, mobile')
+                        .eq('customer_code', selectedInvitedPlayer.customer_code)
+                        .maybeSingle();
+                    invitedPhone = cData?.mobile_normalizado || cData?.mobile;
+                } catch (e) {
+                    console.warn("Erro ao buscar telefone do convidado no cadastro:", e);
+                }
             }
+
+            const playerWithPhone = {
+                ...selectedInvitedPlayer,
+                phone: invitedPhone
+            };
+
+            // Dispara notificação DIRETA e EXCLUSIVA para o WhatsApp daquela pessoa (NÃO envia no grupo)
+            notifyDirectGameInvite(game, user, playerWithPhone, alreadyConfirmed).catch(errNotify => {
+                console.warn("Erro ao disparar convite direto no WhatsApp:", errNotify);
+            });
         }
 
         if (mode === 'open') {
@@ -488,7 +499,9 @@ async function handleGameCreation(user) {
         if (mode === 'open') {
             alert("Partida aberta criada com sucesso! O aviso foi publicado no grupo de WhatsApp do Ranking.");
         } else {
-            alert(alreadyConfirmed ? "Partida confirmada criada com sucesso!" : "Convite enviado com sucesso para o adversário!");
+            alert(alreadyConfirmed 
+                ? "Partida confirmada criada com sucesso! Uma notificação com os detalhes foi enviada diretamente no WhatsApp do adversário." 
+                : "Convite criado com sucesso! Uma mensagem com o convite foi enviada diretamente no WhatsApp do adversário.");
         }
         window.location.hash = `#/jogos/${game.id}`;
     } catch (err) {

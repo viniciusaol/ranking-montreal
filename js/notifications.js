@@ -146,6 +146,152 @@ Quem topa o desafio? Acesse o app e entre na partida:
 }
 
 /**
+ * Normaliza e formata número de telefone para o padrão do WhatsApp (com DDI 55).
+ * Ex: "(41) 98873-1963", "+55 41988731963", "41988731963" -> "5541988731963"
+ */
+export function formatWhatsAppNumber(phone) {
+    if (!phone) return null;
+    let clean = String(phone).replace(/\D/g, '');
+    if (!clean) return null;
+    if (clean.startsWith('0')) clean = clean.substring(1);
+    if (clean.length === 10 || clean.length === 11) {
+        clean = '55' + clean;
+    }
+    return clean;
+}
+
+/**
+ * Notifica um jogador específico via WhatsApp quando ele for convidado para uma partida.
+ * A mensagem é enviada DIRETAMENTE ao número do convidado (NÃO vai para o grupo do WhatsApp).
+ */
+export async function notifyDirectGameInvite(game, creator, invitedPlayer, alreadyConfirmed = false) {
+    if (!CONFIG.NOTIFICATIONS || !CONFIG.NOTIFICATIONS.ENABLED) {
+        return { success: false, reason: 'Notifications disabled' };
+    }
+
+    const targetPhone = formatWhatsAppNumber(invitedPlayer?.phone);
+    if (!targetPhone) {
+        console.warn('Telefone do convidado não disponível para notificação direta WhatsApp.');
+        return { success: false, reason: 'Telefone do convidado não disponível' };
+    }
+
+    const gameId = game.id;
+    const creatorName = creator?.display_name || creator?.name || 'Um tenista da Montreal';
+    const invitedName = invitedPlayer?.display_name || invitedPlayer?.name || 'Tenista';
+    const level = game.accepted_level || 'C';
+    const friendlyDate = formatFriendlyDate(game.game_date);
+    const friendlyTime = formatTimeHM(game.start_time);
+    const duration = game.duration_minutes ? `${game.duration_minutes} min` : '60 min';
+    
+    const baseUrl = CONFIG.APP_PUBLIC_URL || (window.location.origin + window.location.pathname.replace(/\/+$/, ''));
+    const gameLink = `${baseUrl}/#/jogos/${gameId}`;
+
+    let messageText;
+    if (alreadyConfirmed) {
+        messageText = 
+`🎾 *NOVA PARTIDA AGENDADA NO RANKING MONTREAL!* 🎾
+
+Olá, *${invitedName}*!
+*${creatorName}* acabou de registrar uma partida com você no Ranking Montreal:
+
+🏆 *Nível:* Nível ${level} (${game.gender_category || 'Masculino'})
+📅 *Data:* ${friendlyDate} às ${friendlyTime}
+⏱️ *Duração:* ${duration}
+🎾 *Formato:* 1 Set até 8 games (No-Ad)
+📍 *Local:* Montreal Tênis Clube
+✅ *Status:* Partida Confirmada
+
+Acesse o aplicativo para ver os detalhes e registrar o placar após o jogo:
+👉 ${gameLink}
+
+Bom jogo e nos vemos em quadra! 🎾🔥`;
+    } else {
+        messageText = 
+`🎾 *VOCÊ RECEBEU UM CONVITE PARA JOGAR NO RANKING MONTREAL!* 🎾
+
+Olá, *${invitedName}*!
+*${creatorName}* convidou você para uma partida oficial do Ranking Montreal:
+
+🏆 *Nível:* Nível ${level} (${game.gender_category || 'Masculino'})
+📅 *Data:* ${friendlyDate} às ${friendlyTime}
+⏱️ *Duração:* ${duration}
+🎾 *Formato:* 1 Set até 8 games (No-Ad)
+📍 *Local:* Montreal Tênis Clube
+
+Acesse o aplicativo para conferir os detalhes e confirmar a partida:
+👉 ${gameLink}
+
+Bora pro jogo? 🎾🔥`;
+    }
+
+    const payload = {
+        event: alreadyConfirmed ? 'direct_game_scheduled' : 'direct_game_invite',
+        game_id: gameId,
+        creator_name: creatorName,
+        creator_code: creator?.customer_code,
+        invited_name: invitedName,
+        invited_code: invitedPlayer?.customer_code,
+        invited_phone: targetPhone,
+        level: level,
+        game_date: game.game_date,
+        friendly_date: friendlyDate,
+        start_time: game.start_time,
+        friendly_time: friendlyTime,
+        duration_minutes: game.duration_minutes,
+        already_confirmed: alreadyConfirmed,
+        game_link: gameLink,
+        target_phone: targetPhone,
+        formatted_message: messageText
+    };
+
+    let notificationStatus = 'pending';
+
+    try {
+        if (CONFIG.NOTIFICATIONS.N8N_WEBHOOK_URL) {
+            await fetch(CONFIG.NOTIFICATIONS.N8N_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            notificationStatus = 'sent_via_n8n';
+        } else if (CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL && CONFIG.NOTIFICATIONS.UAZAPI_TOKEN) {
+            const endpoint = `${CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL.replace(/\/+$/, '')}/send/text`;
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'token': CONFIG.NOTIFICATIONS.UAZAPI_TOKEN
+                },
+                body: JSON.stringify({
+                    number: targetPhone,
+                    text: messageText
+                })
+            });
+            notificationStatus = resp.ok ? 'sent' : 'failed';
+        }
+    } catch (err) {
+        console.error('Erro ao disparar notificação direta via WhatsApp:', err);
+        notificationStatus = 'error';
+    }
+
+    try {
+        await db.from('mt_game_notifications').insert({
+            customer_code: invitedPlayer?.customer_code,
+            event_type: alreadyConfirmed ? 'direct_scheduled' : 'invite',
+            game_id: gameId,
+            payload: payload,
+            status: notificationStatus,
+            sent_at: notificationStatus === 'sent' || notificationStatus === 'sent_via_n8n' ? new Date().toISOString() : null
+        });
+    } catch (dbErr) {
+        console.warn('Erro ao registrar log de notificação no banco:', dbErr);
+    }
+
+    return { success: notificationStatus === 'sent' || notificationStatus === 'sent_via_n8n', status: notificationStatus };
+}
+
+
+/**
  * Notifica o grupo de WhatsApp do Ranking quando um tenista aceita e entra em uma partida aberta.
  */
 export async function notifyOpenGameJoined(game, creator, challenger) {
