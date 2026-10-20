@@ -1,0 +1,212 @@
+{
+  "name": "Montreal Ranking - Lembretes Automáticos de Placar no WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-cron",
+      "name": "Verificar a cada 15 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lembretes-placar-montreal",
+        "options": {}
+      },
+      "id": "node-webhook-manual",
+      "name": "Webhook - Disparo Manual",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        420
+      ],
+      "webhookId": "montreal-score-reminders-webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ehhjnwosqcrfwonqhfoz.supabase.co/rest/v1/rpc/fn_mt_game_obter_pendencias_lembrete_placar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-supabase-query-reminders",
+      "name": "Buscar Pendências no Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normaliza o array de itens pendentes retornado pelo Supabase\nconst rawData = $input.all();\nconst results = [];\n\nfor (const item of rawData) {\n  const data = item.json;\n  if (Array.isArray(data)) {\n    for (const sub of data) {\n      if (sub && sub.athlete_phone) {\n        results.push({ json: sub });\n      }\n    }\n  } else if (data && data.athlete_phone) {\n    results.push({ json: data });\n  }\n}\n\nreturn results;"
+      },
+      "id": "node-format-list",
+      "name": "Extrair Atletas a Notificar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://montrealtenis.uazapi.com/send/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "4a87a0fd-84b0-404d-83e3-de5d2d7d0022"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.athlete_phone }}\",\n  \"text\": \"{{ $json.formatted_message }}\"\n}",
+        "options": {}
+      },
+      "id": "node-uazapi-send-direct",
+      "name": "Disparar WhatsApp Direto (Uazapi)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ehhjnwosqcrfwonqhfoz.supabase.co/rest/v1/rpc/fn_mt_game_registrar_lembrete_enviado",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_game_id\": \"{{ $('Extrair Atletas a Notificar').item.json.game_id }}\",\n  \"p_stage\": {{ $('Extrair Atletas a Notificar').item.json.stage }},\n  \"p_customer_code\": \"{{ $('Extrair Atletas a Notificar').item.json.athlete_customer_code }}\"\n}",
+        "options": {}
+      },
+      "id": "node-supabase-record-sent",
+      "name": "Registrar Envio no Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        320
+      ]
+    }
+  ],
+  "connections": {
+    "Verificar a cada 15 minutos": {
+      "main": [
+        [
+          {
+            "node": "Buscar Pendências no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Disparo Manual": {
+      "main": [
+        [
+          {
+            "node": "Buscar Pendências no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Pendências no Supabase": {
+      "main": [
+        [
+          {
+            "node": "Extrair Atletas a Notificar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Atletas a Notificar": {
+      "main": [
+        [
+          {
+            "node": "Disparar WhatsApp Direto (Uazapi)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disparar WhatsApp Direto (Uazapi)": {
+      "main": [
+        [
+          {
+            "node": "Registrar Envio no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

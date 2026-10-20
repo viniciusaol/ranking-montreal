@@ -3,7 +3,7 @@
    ==================================================================== */
 
 import { CONFIG } from './config.js';
-import { db } from './supabase.js';
+import { db, callRPC } from './supabase.js';
 import { formatDateBR, formatTimeHM } from './utils.js';
 
 /**
@@ -445,4 +445,72 @@ Compartilhe seu Story e marque a Montreal: *@montreal.tenisclube* 🎾✨`;
         status: notificationStatus 
     };
 }
+
+/**
+ * Busca partidas concluídas sem placar e dispara lembretes via WhatsApp
+ * para os 2 atletas participantes nas 3 cadências:
+ * 1) 15 minutos após o jogo
+ * 2) No dia seguinte (+24h)
+ * 3) 4 dias após (+96h)
+ */
+export async function processPendingScoreReminders() {
+    if (!CONFIG.NOTIFICATIONS || !CONFIG.NOTIFICATIONS.ENABLED) {
+        return { success: false, reason: 'Notificações desabilitadas nas configurações.' };
+    }
+
+    try {
+        const pendingList = await callRPC('fn_mt_game_obter_pendencias_lembrete_placar');
+        if (!pendingList || pendingList.length === 0) {
+            return { success: true, total_pending: 0, sent_count: 0, message: 'Nenhuma partida pendente de lembrete no momento.' };
+        }
+
+        let sentCount = 0;
+        let failCount = 0;
+
+        for (const item of pendingList) {
+            try {
+                if (CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL && CONFIG.NOTIFICATIONS.UAZAPI_TOKEN && item.athlete_phone) {
+                    const endpoint = `${CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL.replace(/\/+$/, '')}/send/text`;
+                    const resp = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'token': CONFIG.NOTIFICATIONS.UAZAPI_TOKEN
+                        },
+                        body: JSON.stringify({
+                            number: item.athlete_phone,
+                            text: item.formatted_message
+                        })
+                    });
+
+                    if (resp.ok) {
+                        sentCount++;
+                        // Registra o envio para este atleta e estágio
+                        await callRPC('fn_mt_game_registrar_lembrete_enviado', {
+                            p_game_id: item.game_id,
+                            p_stage: item.stage,
+                            p_customer_code: item.athlete_customer_code
+                        });
+                    } else {
+                        failCount++;
+                    }
+                }
+            } catch (errItem) {
+                console.warn(`Erro ao enviar lembrete para ${item.athlete_name}:`, errItem);
+                failCount++;
+            }
+        }
+
+        return {
+            success: true,
+            total_pending: pendingList.length,
+            sent_count: sentCount,
+            fail_count: failCount
+        };
+    } catch (err) {
+        console.error('Erro ao processar lembretes de placar:', err);
+        return { success: false, error: err.message };
+    }
+}
+
 
