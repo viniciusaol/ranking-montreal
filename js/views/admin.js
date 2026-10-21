@@ -19,8 +19,98 @@ export async function renderAdmin() {
             <div class="card">
                 <span class="card-title">📊 Resumo do Sistema</span>
                 <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">
-                    Gerencie contestações, moderação e disparos automáticos de notificações do ranking.
+                    Gerencie contestações, moderação, regras do ranking e disparos automáticos de notificações.
                 </p>
+            </div>
+
+            <!-- Seção de Configuração de Regras e Pontuação do Ranking -->
+            <div class="card" style="border-left: 5px solid var(--color-saibro);">
+                <div style="margin-bottom: 12px;">
+                    <span class="card-title" style="color: var(--color-saibro); margin-bottom: 2px;">
+                        ⚙️ Regras & Pontuação do Ranking
+                    </span>
+                    <div style="font-size: 12px; color: var(--color-grey-text); line-height: 1.4;">
+                        Defina a pontuação oficial atribuída aos tenistas e critérios de bônus. As alterações espelham automaticamente no regulamento na Home.
+                    </div>
+                </div>
+
+                <form id="form-ranking-config">
+                    <!-- Pontuação Base -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="font-weight: 700; font-size: 12px;">🏆 Pontos por Vitória</label>
+                            <input type="number" class="form-control" id="cfg-points-winner" min="1" max="500" required style="font-weight: 800; font-size: 16px; color: var(--color-saibro);">
+                            <span style="font-size: 10px; color: var(--color-grey-text); display: block; margin-top: 2px;">Pontos concedidos ao ganhador</span>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="font-weight: 700; font-size: 12px;">🎾 Pontos Participação / Derrota</label>
+                            <input type="number" class="form-control" id="cfg-points-loser" min="0" max="500" required style="font-weight: 800; font-size: 16px;">
+                            <span style="font-size: 10px; color: var(--color-grey-text); display: block; margin-top: 2px;">Pontos concedidos ao perdedor</span>
+                        </div>
+                    </div>
+
+                    <!-- Bônus e Critérios Extras (Colapsável) -->
+                    <details style="background: rgba(0,0,0,0.02); border: 1px solid var(--color-grey-border); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 14px;">
+                        <summary style="font-size: 12px; font-weight: 800; color: var(--color-preto); cursor: pointer;">
+                            ✨ Bônus Adicionais & Critérios Extras (Opcionais)
+                        </summary>
+                        <div style="font-size: 11px; color: var(--color-grey-text); margin: 6px 0 10px 0;">
+                            Deixe em <strong>0</strong> caso queira manter o critério desativado. Valores maiores que 0 serão somados aos pontos base e exibidos no regulamento.
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                <div>
+                                    <div style="font-weight: 700; font-size: 12px;">🔥 Vitória Dominante / Pneu</div>
+                                    <div style="font-size: 10px; color: var(--color-grey-text);">Adversário com 2 ou menos games (ex: 8x0, 8x1, 8x2)</div>
+                                </div>
+                                <input type="number" class="form-control" id="cfg-bonus-bagel" min="0" max="100" style="width: 75px; text-align: center; font-weight: 700;">
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                <div>
+                                    <div style="font-weight: 700; font-size: 12px;">⚔️ Combatividade no Tiebreak</div>
+                                    <div style="font-size: 10px; color: var(--color-grey-text);">Bônus ao atleta derrotado no tiebreak decisivo (8x7)</div>
+                                </div>
+                                <input type="number" class="form-control" id="cfg-bonus-tiebreak" min="0" max="100" style="width: 75px; text-align: center; font-weight: 700;">
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                <div>
+                                    <div style="font-weight: 700; font-size: 12px;">⭐ Vitória Contra Nível Superior</div>
+                                    <div style="font-size: 10px; color: var(--color-grey-text);">Underdog bonus: vencedor de nível inferior ao adversário</div>
+                                </div>
+                                <input type="number" class="form-control" id="cfg-bonus-underdog" min="0" max="100" style="width: 75px; text-align: center; font-weight: 700;">
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                <div>
+                                    <div style="font-weight: 700; font-size: 12px;">🎾 Ponto Extra por Game Vencido</div>
+                                    <div style="font-size: 10px; color: var(--color-grey-text);">Cada game conquistado na partida soma X pontos</div>
+                                </div>
+                                <input type="number" class="form-control" id="cfg-pts-per-game" min="0" max="50" style="width: 75px; text-align: center; font-weight: 700;">
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Observações Personalizadas para o Regulamento -->
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label class="form-label" style="font-weight: 700; font-size: 12px;">📝 Observações / Avisos no Regulamento (Opcional)</label>
+                        <textarea class="form-control" id="cfg-custom-notes" rows="2" style="font-size: 12px;" placeholder="Ex: Todos os atletas devem registrar o placar no aplicativo logo após o término do set."></textarea>
+                    </div>
+
+                    <div id="cfg-status-msg" style="display: none; font-size: 12px; margin-bottom: 10px; font-weight: 700;"></div>
+
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <button type="submit" class="btn btn-primary" id="btn-save-ranking-config" style="font-weight: 800;">
+                            💾 Salvar Configurações do Ranking
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-recalc-season-games" style="font-size: 11px; padding: 6px; font-weight: 600;">
+                            🔄 Aplicar e Recalcular Pontuações dos Jogos da Temporada Atual
+                        </button>
+                    </div>
+                </form>
             </div>
 
             <!-- Seção de Lembretes Automáticos de Placar -->
@@ -56,8 +146,74 @@ export async function renderAdmin() {
         </div>
     `;
 
-    // Carrega pendências de lembrete de placar
+    // Carrega configurações do ranking e pendências de lembrete de placar
+    loadRankingConfig();
     loadScoreReminders();
+
+    // Listener para Salvar Configurações do Ranking
+    document.getElementById('form-ranking-config')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btnSave = document.getElementById('btn-save-ranking-config');
+        const statusMsg = document.getElementById('cfg-status-msg');
+
+        const payload = {
+            points_winner: parseInt(document.getElementById('cfg-points-winner')?.value || '30', 10),
+            points_loser: parseInt(document.getElementById('cfg-points-loser')?.value || '10', 10),
+            bonus_bagel_shutout: parseInt(document.getElementById('cfg-bonus-bagel')?.value || '0', 10),
+            bonus_tiebreak_loss: parseInt(document.getElementById('cfg-bonus-tiebreak')?.value || '0', 10),
+            bonus_underdog_win: parseInt(document.getElementById('cfg-bonus-underdog')?.value || '0', 10),
+            points_per_game_won: parseInt(document.getElementById('cfg-pts-per-game')?.value || '0', 10),
+            custom_notes: document.getElementById('cfg-custom-notes')?.value || ''
+        };
+
+        btnSave.disabled = true;
+        btnSave.textContent = "Salvando configurações...";
+        statusMsg.style.display = 'none';
+
+        try {
+            const res = await callRPC('fn_mt_ranking_salvar_config', {
+                p_admin_code: user.customer_code,
+                p_config: payload
+            });
+
+            statusMsg.textContent = "✅ Configurações salvas com sucesso! As novas regras já estão ativas e refletidas na Home.";
+            statusMsg.style.color = "#166534";
+            statusMsg.style.display = 'block';
+            setTimeout(() => { statusMsg.style.display = 'none'; }, 5000);
+        } catch (err) {
+            statusMsg.textContent = "❌ Erro ao salvar: " + (err.message || err);
+            statusMsg.style.color = "var(--color-danger)";
+            statusMsg.style.display = 'block';
+        } finally {
+            btnSave.disabled = false;
+            btnSave.textContent = "💾 Salvar Configurações do Ranking";
+        }
+    });
+
+    // Listener para Recalcular Pontuações da Temporada Atual
+    document.getElementById('btn-recalc-season-games')?.addEventListener('click', async () => {
+        const confirmed = confirm(
+            "⚠️ ATENÇÃO: Deseja realmente recalcular as pontuações de todos os jogos já realizados na Temporada Atual com base nas regras ativas?\\n\\nIsso atualizará a tabela de classificação e os pontos dos atletas no ranking."
+        );
+        if (!confirmed) return;
+
+        const btnRecalc = document.getElementById('btn-recalc-season-games');
+        btnRecalc.disabled = true;
+        btnRecalc.textContent = "🔄 Recalculando pontuações da temporada...";
+
+        try {
+            const res = await callRPC('fn_mt_ranking_recalcular_temporada_atual', {
+                p_admin_code: user.customer_code
+            });
+
+            alert("🏆 " + (res?.message || "Pontuações da temporada recalculadas com sucesso!"));
+        } catch (err) {
+            alert("Erro ao recalcular pontuações: " + (err.message || err));
+        } finally {
+            btnRecalc.disabled = false;
+            btnRecalc.textContent = "🔄 Aplicar e Recalcular Pontuações dos Jogos da Temporada Atual";
+        }
+    });
 
     document.getElementById('btn-trigger-score-reminders')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-trigger-score-reminders');
@@ -151,4 +307,30 @@ async function loadScoreReminders() {
         box.innerHTML = `<span style="color: var(--color-danger); font-size: 11px;">Erro ao carregar lembretes: ${err.message}</span>`;
     }
 }
+
+async function loadRankingConfig() {
+    try {
+        const cfg = await callRPC('fn_mt_ranking_obter_config');
+        if (!cfg) return;
+
+        const inputWinner = document.getElementById('cfg-points-winner');
+        const inputLoser = document.getElementById('cfg-points-loser');
+        const inputBagel = document.getElementById('cfg-bonus-bagel');
+        const inputTiebreak = document.getElementById('cfg-bonus-tiebreak');
+        const inputUnderdog = document.getElementById('cfg-bonus-underdog');
+        const inputPtsPerGame = document.getElementById('cfg-pts-per-game');
+        const inputNotes = document.getElementById('cfg-custom-notes');
+
+        if (inputWinner) inputWinner.value = cfg.points_winner ?? 30;
+        if (inputLoser) inputLoser.value = cfg.points_loser ?? 10;
+        if (inputBagel) inputBagel.value = cfg.bonus_bagel_shutout ?? 0;
+        if (inputTiebreak) inputTiebreak.value = cfg.bonus_tiebreak_loss ?? 0;
+        if (inputUnderdog) inputUnderdog.value = cfg.bonus_underdog_win ?? 0;
+        if (inputPtsPerGame) inputPtsPerGame.value = cfg.points_per_game_won ?? 0;
+        if (inputNotes) inputNotes.value = cfg.custom_notes || '';
+    } catch (e) {
+        console.error('Erro ao carregar configuração do ranking:', e);
+    }
+}
+
 

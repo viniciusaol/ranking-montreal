@@ -27,6 +27,14 @@ export async function renderGameDetail(params) {
         const { data: game, error } = await db.from('mt_games').select('*').eq('id', gameId).single();
         if (error || !game) throw error || new Error("Jogo não encontrado.");
 
+        let rankingConfig = { points_winner: 30, points_loser: 10 };
+        try {
+            const fetched = await callRPC('fn_mt_ranking_obter_config');
+            if (fetched) rankingConfig = fetched;
+        } catch (e) {
+            console.warn('Erro ao obter config em game-detail:', e);
+        }
+
         const { data: participants } = await db.from('mt_game_participants').select('*').eq('game_id', gameId);
         
         // Busca os nomes e perfis dos participantes e do criador
@@ -755,11 +763,11 @@ export async function renderGameDetail(params) {
                 } else if (g1 === 8 && g2 < 7) {
                     feedbackEl.style.background = 'rgba(46, 125, 50, 0.1)';
                     feedbackEl.style.color = '#2e7d32';
-                    feedbackEl.textContent = `🎉 Vitória sua por 8 x ${g2}! (+30 pontos no ranking)`;
+                    feedbackEl.textContent = `🎉 Vitória sua por 8 x ${g2}! (+${rankingConfig.points_winner} pontos no ranking)`;
                 } else if (g2 === 8 && g1 < 7) {
                     feedbackEl.style.background = 'rgba(0,0,0,0.05)';
                     feedbackEl.style.color = 'var(--color-preto)';
-                    feedbackEl.textContent = `🎾 Vitória do adversário por 8 x ${g1}. (+10 pontos de participação)`;
+                    feedbackEl.textContent = `🎾 Vitória do adversário por 8 x ${g1}. (+${rankingConfig.points_loser} pontos de participação)`;
                 } else if (isTiebreak) {
                     const tb1 = parseInt(tbP1El?.value || '0', 10);
                     const tb2 = parseInt(tbP2El?.value || '0', 10);
@@ -769,11 +777,11 @@ export async function renderGameDetail(params) {
                         if (tb1 > tb2) {
                             feedbackEl.style.background = 'rgba(46, 125, 50, 0.1)';
                             feedbackEl.style.color = '#2e7d32';
-                            feedbackEl.textContent = `🎉 Vitória sua por 8 x 7 no Tiebreak (${tb1} x ${tb2})! (+30 pts no ranking)`;
+                            feedbackEl.textContent = `🎉 Vitória sua por 8 x 7 no Tiebreak (${tb1} x ${tb2})! (+${rankingConfig.points_winner} pts no ranking)`;
                         } else {
                             feedbackEl.style.background = 'rgba(0,0,0,0.05)';
                             feedbackEl.style.color = 'var(--color-preto)';
-                            feedbackEl.textContent = `🎾 Vitória do adversário por 8 x 7 no Tiebreak (${tb1} x ${tb2}). (+10 pts)`;
+                            feedbackEl.textContent = `🎾 Vitória do adversário por 8 x 7 no Tiebreak (${tb1} x ${tb2}). (+${rankingConfig.points_loser} pts)`;
                         }
                     } else {
                         feedbackEl.style.background = 'rgba(192, 81, 49, 0.08)';
@@ -1205,7 +1213,7 @@ async function submitGameScore(user, game, participants, selectedScoreOpponent =
             p_tb_p2: tb2
         });
 
-        alert("🏆 Placar registrado com sucesso! O ranking já foi atualizado com os pontos da partida (+30 pts vitória / +10 pts participação).");
+        alert(`🏆 Placar registrado com sucesso! O ranking já foi atualizado com os pontos oficiais da partida (+${rankingConfig.points_winner} pts vitória / +${rankingConfig.points_loser} pts participação).`);
         renderGameDetail({ gameId: game.id });
     } catch (e) {
         console.error("Erro ao registrar placar:", e);
