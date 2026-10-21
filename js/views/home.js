@@ -25,7 +25,7 @@ export async function renderHome() {
         bonus_underdog_win: 0,
         points_per_game_won: 0,
         game_format_name: '1 Set até 8 games (No-Ad)',
-        game_format_details: 'Partida disputada em 1 set profissional até 8 games. Em 7x7 joga-se até 9. Em 8x8 joga-se o tie-break decisivo até 7 pontos (diferença de 2). Todos os games são disputados sem vantagem (No-Ad - ponto decisivo no 40x40).',
+        game_format_details: 'Partida disputada em 1 set até 8 games. Em caso de empate em 7x7, disputa-se um Tiebreak até 7 pontos (com diferença de 2) e o vencedor fecha a partida por 8x7. Todos os games são disputados sem vantagem (No-Ad — no 40x40 o recebedor escolhe o lado para receber o saque decisivo).',
         custom_notes: ''
     };
     try {
@@ -152,8 +152,7 @@ export async function renderHome() {
                             <span>🎾</span> Formato Oficial das Partidas
                         </div>
                         <div style="font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; background: rgba(0,0,0,0.02); padding: 10px; border-radius: 8px;">
-                            • <strong>${cfg.game_format_name}:</strong> ${cfg.game_format_details}<br>
-                            • <strong>Duração padrão:</strong> 60 minutos de quadra.
+                            • <strong>${cfg.game_format_name}:</strong> ${cfg.game_format_details}
                         </div>
                     </div>
 

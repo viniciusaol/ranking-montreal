@@ -8,7 +8,7 @@ import { requestLoginCode, confirmLoginCode, loginWithPhone, checkAuth, refreshU
 import { callRPC } from './supabase.js';
 import { CONFIG } from './config.js';
 
-import { renderHome } from './views/home.js?v=1.9.0';
+import { renderHome } from './views/home.js?v=1.9.1';
 import { renderRanking } from './views/ranking.js?v=1.5.7';
 import { renderGameCreate } from './views/game-create.js?v=1.7.0';
 import { renderGameDetail } from './views/game-detail.js?v=1.9.0';
