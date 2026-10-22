@@ -278,3 +278,63 @@ BEGIN
 END;
 $function$;
 
+-- ====================================================================
+-- RPC: LISTAR ATLETAS ATIVADOS NO RANKING (EXCLUSIVO ADMIN)
+-- ====================================================================
+CREATE OR REPLACE FUNCTION public.fn_mt_admin_listar_atletas_ativados(p_admin_code text)
+RETURNS TABLE (
+    customer_code text,
+    display_name text,
+    official_name text,
+    phone text,
+    current_level character varying,
+    gender text,
+    is_admin boolean,
+    terms_accepted_at timestamp with time zone,
+    created_at timestamp with time zone,
+    total_games bigint,
+    total_points bigint
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+    v_is_admin boolean;
+BEGIN
+    SELECT COALESCE(p.is_admin, false) INTO v_is_admin
+    FROM public.mt_game_profiles p
+    WHERE p.customer_code = p_admin_code;
+
+    IF NOT COALESCE(v_is_admin, false) THEN
+        RAISE EXCEPTION 'Acesso restrito a administradores.';
+    END IF;
+
+    RETURN QUERY
+    SELECT 
+        p.customer_code,
+        p.display_name,
+        COALESCE(c.name, p.display_name) AS official_name,
+        COALESCE(c.mobile, c.mobile_normalizado, '') AS phone,
+        p.current_level,
+        COALESCE(p.gender, 'Masculino') AS gender,
+        COALESCE(p.is_admin, false) AS is_admin,
+        p.terms_accepted_at,
+        p.created_at,
+        COALESCE((
+            SELECT COUNT(*) 
+            FROM public.mt_game_participants gp 
+            WHERE gp.customer_code = p.customer_code
+        ), 0)::bigint AS total_games,
+        COALESCE((
+            SELECT SUM(re.points_change) 
+            FROM public.mt_ranking_events re 
+            WHERE re.customer_code = p.customer_code
+        ), 0)::bigint AS total_points
+    FROM public.mt_game_profiles p
+    LEFT JOIN public.mt_clientes c ON c.customer_code = p.customer_code
+    WHERE p.is_active = true
+    ORDER BY COALESCE(p.terms_accepted_at, p.created_at) DESC;
+END;
+$$;
+

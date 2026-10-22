@@ -1,7 +1,9 @@
 import { state } from '../state.js';
 import { db, callRPC } from '../supabase.js';
-import { formatDateBR } from '../utils.js?v=1.4.8';
+import { formatDateBR, formatPhone, getInitials } from '../utils.js?v=1.4.8';
 import { processPendingScoreReminders } from '../notifications.js?v=1.7.0';
+
+let allActivatedAthletes = [];
 
 export async function renderAdmin() {
     const container = document.getElementById('view-content');
@@ -18,9 +20,62 @@ export async function renderAdmin() {
 
             <div class="card">
                 <span class="card-title">📊 Resumo do Sistema</span>
-                <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">
-                    Gerencie contestações, moderação, regras do ranking e disparos automáticos de notificações.
+                <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-bottom: 12px;">
+                    Gerencie contestações, moderação, regras do ranking, novos cadastros e lembretes automáticos.
                 </p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
+                    <div style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: var(--radius-sm); padding: 10px; text-align: center;">
+                        <div id="stat-total-athletes" style="font-size: 22px; font-weight: 800; color: #166534;">-</div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--color-grey-text);">Atletas Ativos</div>
+                    </div>
+                    <div style="background: rgba(194, 65, 12, 0.08); border: 1px solid rgba(194, 65, 12, 0.2); border-radius: var(--radius-sm); padding: 10px; text-align: center;">
+                        <div id="stat-total-games" style="font-size: 22px; font-weight: 800; color: var(--color-saibro);">0</div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--color-grey-text);">Jogos Realizados</div>
+                    </div>
+                    <div style="background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.25); border-radius: var(--radius-sm); padding: 10px; text-align: center;">
+                        <div id="stat-pending-reminders" style="font-size: 22px; font-weight: 800; color: #b45309;">-</div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--color-grey-text);">Lembretes Pendentes</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção de Atletas Cadastrados e Ativados no Ranking -->
+            <div class="card" style="border-left: 5px solid var(--color-verde);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span class="card-title" style="color: #166534; margin-bottom: 0;">
+                                👥 Atletas Ativados no Ranking
+                            </span>
+                            <span id="admin-athletes-count-badge" class="badge" style="background: rgba(34, 197, 94, 0.15); color: #166534; font-weight: 800; font-size: 11px;">
+                                Carregando...
+                            </span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--color-grey-text); line-height: 1.4; margin-top: 4px;">
+                            Lista de tenistas que já acessaram o link, validaram o telefone e ativaram seu perfil.
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-athletes" style="font-size: 11px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 4px; font-weight: 700;">
+                        🔄 Atualizar Lista
+                    </button>
+                </div>
+
+                <!-- Barra de busca e filtros rápidos -->
+                <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+                    <input type="text" id="filter-athletes-search" class="form-control" placeholder="🔍 Buscar por nome ou telefone..." style="flex: 1; min-width: 170px; font-size: 12px; padding: 7px 10px;">
+                    <select id="filter-athletes-level" class="form-control" style="width: auto; min-width: 120px; font-size: 12px; padding: 7px 10px; font-weight: 700;">
+                        <option value="ALL">Todos os Níveis</option>
+                        <option value="A">Nível A</option>
+                        <option value="B">Nível B</option>
+                        <option value="C">Nível C</option>
+                        <option value="D">Nível D</option>
+                    </select>
+                </div>
+
+                <!-- Lista de atletas -->
+                <div id="admin-athletes-list" style="display: flex; flex-direction: column; gap: 8px;">
+                    <p style="text-align: center; color: var(--color-grey-text); font-size: 12px; margin: 12px 0;">Consultando atletas cadastrados...</p>
+                </div>
             </div>
 
             <!-- Seção de Configuração de Regras e Pontuação do Ranking -->
@@ -146,9 +201,29 @@ export async function renderAdmin() {
         </div>
     `;
 
-    // Carrega configurações do ranking e pendências de lembrete de placar
+    // Carrega dados do painel admin
+    loadActivatedAthletes(user);
     loadRankingConfig();
     loadScoreReminders();
+    loadSystemStats();
+
+    // Listeners da Seção de Atletas
+    document.getElementById('btn-refresh-athletes')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-refresh-athletes');
+        btn.disabled = true;
+        btn.textContent = 'Carregando...';
+        await loadActivatedAthletes(user);
+        btn.disabled = false;
+        btn.textContent = '🔄 Atualizar Lista';
+    });
+
+    document.getElementById('filter-athletes-search')?.addEventListener('input', () => {
+        renderFilteredAthletes();
+    });
+
+    document.getElementById('filter-athletes-level')?.addEventListener('change', () => {
+        renderFilteredAthletes();
+    });
 
     // Listener para Salvar Configurações do Ranking
     document.getElementById('form-ranking-config')?.addEventListener('submit', async (e) => {
@@ -302,10 +377,192 @@ async function loadScoreReminders() {
                     </div>
                 `).join('')}
             </div>
+        box.innerHTML = `
+            <div style="font-size: 12px; font-weight: 800; color: #b45309; margin-bottom: 8px;">
+                ⚠️ ${list.length} notificação(ões) de lembrete pronta(s) para disparo:
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                ${list.map(item => `
+                    <div style="background: white; border: 1px solid var(--color-border); border-radius: 6px; padding: 8px 10px; font-size: 11px;">
+                        <div style="display: flex; justify-content: space-between; font-weight: 700;">
+                            <span>${item.athlete_name} (${item.athlete_phone})</span>
+                            <span class="badge badge-warning" style="font-size: 9px;">${item.stage_label}</span>
+                        </div>
+                        <div style="color: var(--color-grey-text); margin-top: 2px;">
+                            Jogo vs ${item.opponent_name} • Data: ${item.game_date} às ${item.start_time}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
         `;
+
+        const statReminders = document.getElementById('stat-pending-reminders');
+        if (statReminders) statReminders.textContent = list ? list.length : 0;
     } catch (err) {
         box.innerHTML = `<span style="color: var(--color-danger); font-size: 11px;">Erro ao carregar lembretes: ${err.message}</span>`;
     }
+}
+
+async function loadSystemStats() {
+    try {
+        const { count: gamesCount } = await db.from('mt_games').select('id', { count: 'exact', head: true });
+        const statGames = document.getElementById('stat-total-games');
+        if (statGames) statGames.textContent = gamesCount || 0;
+    } catch (e) {
+        console.warn('Erro ao carregar contagem de jogos:', e);
+    }
+}
+
+async function loadActivatedAthletes(user) {
+    const listContainer = document.getElementById('admin-athletes-list');
+    const badge = document.getElementById('admin-athletes-count-badge');
+    const statTotal = document.getElementById('stat-total-athletes');
+    if (!listContainer) return;
+
+    try {
+        const athletes = await callRPC('fn_mt_admin_listar_atletas_ativados', {
+            p_admin_code: user.customer_code
+        });
+
+        allActivatedAthletes = athletes || [];
+        const count = allActivatedAthletes.length;
+
+        if (badge) {
+            badge.textContent = `${count} ${count === 1 ? 'Atleta Ativo' : 'Atletas Ativos'}`;
+        }
+        if (statTotal) {
+            statTotal.textContent = count;
+        }
+
+        renderFilteredAthletes();
+    } catch (err) {
+        console.error('Erro ao listar atletas ativados:', err);
+        if (listContainer) {
+            listContainer.innerHTML = `<span style="color: var(--color-danger); font-size: 12px;">Erro ao carregar atletas: ${err.message}</span>`;
+        }
+    }
+}
+
+function renderFilteredAthletes() {
+    const listContainer = document.getElementById('admin-athletes-list');
+    const searchVal = (document.getElementById('filter-athletes-search')?.value || '').toLowerCase().trim();
+    const levelVal = document.getElementById('filter-athletes-level')?.value || 'ALL';
+
+    if (!listContainer) return;
+
+    const filtered = allActivatedAthletes.filter(athlete => {
+        const matchSearch = !searchVal || 
+            (athlete.display_name && athlete.display_name.toLowerCase().includes(searchVal)) ||
+            (athlete.official_name && athlete.official_name.toLowerCase().includes(searchVal)) ||
+            (athlete.phone && athlete.phone.includes(searchVal)) ||
+            (athlete.customer_code && athlete.customer_code.includes(searchVal));
+        
+        const matchLevel = (levelVal === 'ALL') || (athlete.current_level === levelVal);
+        return matchSearch && matchLevel;
+    });
+
+    if (filtered.length === 0) {
+        listContainer.innerHTML = `
+            <div style="text-align: center; padding: 18px; color: var(--color-grey-text); font-size: 12px; background: rgba(0,0,0,0.02); border-radius: 6px; border: 1px dashed var(--color-grey-border);">
+                Nenhum atleta encontrado com os filtros informados.
+            </div>
+        `;
+        return;
+    }
+
+    listContainer.innerHTML = filtered.map(item => {
+        const initials = getInitials(item.display_name || item.official_name || 'MT');
+        const formattedPhone = formatPhone(item.phone);
+        const cleanDigits = (item.phone || '').replace(/\D/g, '');
+        const waNumber = cleanDigits.startsWith('55') ? cleanDigits : ('55' + cleanDigits);
+        const hasPhone = cleanDigits.length >= 8;
+
+        const dateObj = item.terms_accepted_at ? new Date(item.terms_accepted_at) : (item.created_at ? new Date(item.created_at) : null);
+        let dateFormatted = 'Data n/d';
+        if (dateObj && !isNaN(dateObj.getTime())) {
+            const datePart = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const timePart = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            dateFormatted = `${datePart} às ${timePart}`;
+        }
+
+        const firstName = (item.display_name || 'Atleta').split(' ')[0];
+        const waMsg = encodeURIComponent(`Olá ${firstName}, seja bem-vindo(a) ao Ranking do Montreal Tênis Clube!`);
+
+        return `
+            <div style="
+                background: white;
+                border: 1px solid var(--color-grey-border);
+                border-radius: var(--radius-sm);
+                padding: 10px 12px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            ">
+                <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                    <div style="
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 50%;
+                        background: ${item.is_admin ? 'linear-gradient(135deg, #b91c1c, #ef4444)' : 'linear-gradient(135deg, #c2410c, #ea580c)'};
+                        color: white;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: 800;
+                        font-size: 13px;
+                        flex-shrink: 0;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    ">
+                        ${initials}
+                    </div>
+                    <div style="min-width: 0;">
+                        <div style="font-weight: 800; font-size: 13px; color: var(--color-preto); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;">
+                            <span>${item.display_name}</span>
+                            ${item.is_admin ? '<span class="badge badge-danger" style="font-size: 9px; padding: 1px 5px; font-weight: 800;">Admin</span>' : ''}
+                        </div>
+                        <div style="font-size: 11px; color: var(--color-grey-text); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            ${item.official_name && item.official_name !== item.display_name ? `<span>${item.official_name} • </span>` : ''}
+                            <span>Entrou em ${dateFormatted}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                    <div style="text-align: right;">
+                        <span class="badge" style="background: rgba(194, 65, 12, 0.1); color: var(--color-saibro); font-weight: 800; font-size: 11px; padding: 2px 6px;">
+                            Nível ${item.current_level || 'C'}
+                        </span>
+                        <div style="font-size: 10px; color: var(--color-grey-text); margin-top: 2px;">
+                            ${item.gender || 'Masculino'}
+                        </div>
+                    </div>
+
+                    ${hasPhone ? `
+                        <a href="https://wa.me/${waNumber}?text=${waMsg}" target="_blank" rel="noopener noreferrer" 
+                           title="Enviar mensagem no WhatsApp (${formattedPhone})"
+                           style="
+                               display: inline-flex;
+                               align-items: center;
+                               justify-content: center;
+                               width: 32px;
+                               height: 32px;
+                               background: #25d366;
+                               color: white;
+                               border-radius: 50%;
+                               text-decoration: none;
+                               font-size: 15px;
+                               box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+                               cursor: pointer;
+                           ">
+                            💬
+                        </a>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 async function loadRankingConfig() {
