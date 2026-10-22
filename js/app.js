@@ -14,7 +14,7 @@ import { renderGameCreate } from './views/game-create.js?v=1.7.0';
 import { renderGameDetail } from './views/game-detail.js?v=1.9.0';
 import { renderMyGames } from './views/my-games.js?v=1.5.7';
 import { renderProfile } from './views/profile.js?v=1.6.8';
-import { renderAdmin } from './views/admin.js?v=1.9.1';
+import { renderAdmin } from './views/admin.js?v=1.9.2';
 import { renderRetrospective } from './views/retrospective.js?v=1.6.8';
 
 // Registrar Rotas
@@ -27,7 +27,7 @@ router.addRoute('/jogos', renderMyGames);
 router.addRoute('/perfil', renderProfile);
 router.addRoute('/admin', renderAdmin);
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function initApp() {
     // Registra Service Worker se suportado (PWA Ready)
     if ('serviceWorker' in navigator) {
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -61,7 +61,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateHeaderUserBadge();
         });
     }
-});
+
+    // Dispara a rota inicial com garantia de DOM montado
+    router.handleRoute();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
 
 function setupAuthModal() {
     const authOverlay = document.getElementById('auth-modal-overlay');

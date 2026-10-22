@@ -8,7 +8,11 @@ class Router {
     constructor() {
         this.routes = {};
         window.addEventListener('hashchange', () => this.handleRoute());
-        window.addEventListener('load', () => this.handleRoute());
+        if (document.readyState === 'complete') {
+            setTimeout(() => this.handleRoute(), 0);
+        } else {
+            window.addEventListener('load', () => this.handleRoute());
+        }
     }
 
     addRoute(path, viewHandler) {

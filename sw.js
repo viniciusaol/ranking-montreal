@@ -2,7 +2,7 @@
    MONTREAL TÊNIS CLUBE - SERVICE WORKER (PWA READY)
    ==================================================================== */
 
-const CACHE_NAME = 'montreal-ranking-v1.6.7';
+const CACHE_NAME = 'montreal-ranking-v1.6.8';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -20,6 +20,7 @@ const ASSETS_TO_CACHE = [
   './js/auth.js',
   './js/router.js',
   './js/app.js',
+  './js/views/admin.js',
   './js/views/ranking.js',
   './js/views/profile.js',
   './js/views/game-create.js',

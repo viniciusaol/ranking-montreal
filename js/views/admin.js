@@ -377,23 +377,6 @@ async function loadScoreReminders() {
                     </div>
                 `).join('')}
             </div>
-        box.innerHTML = `
-            <div style="font-size: 12px; font-weight: 800; color: #b45309; margin-bottom: 8px;">
-                ⚠️ ${list.length} notificação(ões) de lembrete pronta(s) para disparo:
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-                ${list.map(item => `
-                    <div style="background: white; border: 1px solid var(--color-border); border-radius: 6px; padding: 8px 10px; font-size: 11px;">
-                        <div style="display: flex; justify-content: space-between; font-weight: 700;">
-                            <span>${item.athlete_name} (${item.athlete_phone})</span>
-                            <span class="badge badge-warning" style="font-size: 9px;">${item.stage_label}</span>
-                        </div>
-                        <div style="color: var(--color-grey-text); margin-top: 2px;">
-                            Jogo vs ${item.opponent_name} • Data: ${item.game_date} às ${item.start_time}
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
         `;
 
         const statReminders = document.getElementById('stat-pending-reminders');
