@@ -9,7 +9,7 @@ import { callRPC } from './supabase.js';
 import { CONFIG } from './config.js';
 
 import { renderHome } from './views/home.js?v=1.9.2';
-import { renderRanking } from './views/ranking.js?v=1.6.0';
+import { renderRanking } from './views/ranking.js?v=1.6.1';
 import { renderGameCreate } from './views/game-create.js?v=1.8.1';
 import { renderGameDetail } from './views/game-detail.js?v=1.9.5';
 import { renderMyGames } from './views/my-games.js?v=1.5.7';

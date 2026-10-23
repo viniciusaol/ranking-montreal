@@ -294,15 +294,14 @@ async function loadRankingList(level, gender, year) {
 
         listContainer.innerHTML = `
             <div style="font-size: 11px; color: var(--color-grey-text); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; padding: 0 4px; flex-wrap: wrap; gap: 4px;">
-                <span>Cálculo: <strong>Pontos Acum. × % Apr.</strong></span>
-                <span>Desempate: <strong>Apr. > Vitórias</strong></span>
+                <span>Classificação: <strong>Pontos no Ranking</strong></span>
+                <span>Desempate: <strong>% Apr. > Vitórias</strong></span>
             </div>
             <div class="ranking-list">
                 ${ranking.map((item, idx) => {
                     const isMe = user && String(user.customer_code).trim() === String(item.customer_code).trim();
                     const isChampion = !isCurrentSeason && idx === 0 && item.total_points > 0;
                     const finalPoints = Math.round(Number(item.total_points) || 0);
-                    const accumPoints = Number(item.accumulated_points) || 0;
                     const winRate = Number(item.win_rate) || 0;
                     const penaltyPct = Number(item.inactivity_penalty_pct) || 0;
 
@@ -338,7 +337,6 @@ async function loadRankingList(level, gender, year) {
                             </div>
                             <div class="ranking-points" style="text-align: right; ${isChampion ? 'color: #b45309; font-weight: 800;' : ''}">
                                 <div style="font-size: 16px; font-weight: 900; color: var(--color-saibro);">${finalPoints} pts</div>
-                                <div style="font-size: 10px; color: var(--color-grey-text); font-weight: 600;">${accumPoints} acum.</div>
                             </div>
                         </div>
                     `;
