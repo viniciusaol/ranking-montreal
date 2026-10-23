@@ -412,6 +412,8 @@ async function loadGamesList(user) {
                         borderLeftColor = 'var(--color-booking-blue)';
                     } else if (isOpen) {
                         borderLeftColor = 'var(--color-warning)';
+                    } else if (game.status === 'cancelled') {
+                        borderLeftColor = 'var(--color-danger)';
                     }
 
                     return `
@@ -421,14 +423,18 @@ async function loadGamesList(user) {
                                 <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
                                     <span class="badge badge-level-${game.accepted_level}">Nível ${game.accepted_level}</span>
                                     <span class="badge" style="background: rgba(0,0,0,0.06); color: var(--color-preto); font-weight: 700;">🎾 ${game.gender_category || 'Masculino'}</span>
-                                    <span class="badge ${isCompleted || isConfirmed ? 'badge-success' : 'badge-warning'}">
+                                    <span class="badge ${isCompleted || isConfirmed ? 'badge-success' : (game.status === 'cancelled' ? 'badge-danger' : 'badge-warning')}">
                                         ${statusLabel}
                                     </span>
-                                    ${activeMainTab === 'open' ? `
+                                    ${activeMainTab === 'open' && isCreator ? `
+                                        <span class="badge" style="font-size: 10px; background: rgba(0, 123, 255, 0.12); color: #0056b3; border: 1px solid rgba(0, 123, 255, 0.3); font-weight: 800;">
+                                            📢 Seu Desafio Aberto
+                                        </span>
+                                    ` : (activeMainTab === 'open' ? `
                                         <span class="badge" style="font-size: 10px; ${isLevelEligible(user.current_level, game.accepted_level) ? 'background: rgba(40, 167, 69, 0.1); color: #2e7d32; border: 1px solid rgba(40, 167, 69, 0.3); font-weight: 800;' : 'background: rgba(0,0,0,0.05); color: var(--color-grey-text);'}">
                                             ${isLevelEligible(user.current_level, game.accepted_level) ? '✅ Apto p/ Jogar' : '🔒 Nível Incompatível'}
                                         </span>
-                                    ` : ''}
+                                    ` : '')}
                                 </div>
                                 <span style="font-size: var(--font-size-xs); color: var(--color-grey-text); font-weight: 700; white-space: nowrap;">
                                     📅 ${formatDateBR(game.game_date)}
@@ -494,11 +500,15 @@ async function loadGamesList(user) {
                                     <span class="badge badge-success" style="font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 12px; box-shadow: 0 2px 6px rgba(40,167,69,0.25);">
                                         🎾 Entrar na Partida →
                                     </span>
+                                ` : (isOpen && isCreator ? `
+                                    <span style="font-weight: 800; color: #0056b3; font-size: 11px;">
+                                        ⚙️ Ver / Fechar Desafio →
+                                    </span>
                                 ` : `
                                     <span style="font-weight: 700; color: var(--color-saibro); font-size: 11px;">
                                         Ver Detalhes →
                                     </span>
-                                `}
+                                `)}
                             </div>
                         </div>
                     `;

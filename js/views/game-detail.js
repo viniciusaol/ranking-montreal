@@ -113,7 +113,7 @@ export async function renderGameDetail(params) {
                         <div>
                             <span class="badge badge-level-${game.accepted_level}">Nível ${game.accepted_level}</span>
                             <span class="badge" style="background: rgba(0,0,0,0.06); color: var(--color-preto); font-weight: 700; margin-left: 4px;">🎾 ${game.gender_category || 'Masculino'}</span>
-                            <span class="badge ${game.status === 'confirmed' || game.status === 'completed' ? 'badge-success' : 'badge-warning'}" style="margin-left: 4px;">
+                            <span class="badge ${game.status === 'confirmed' || game.status === 'completed' ? 'badge-success' : (game.status === 'cancelled' || game.status === 'voided' ? 'badge-danger' : 'badge-warning')}" style="margin-left: 4px;">
                                 ${statusLabel}
                             </span>
                             <h2 style="font-size: var(--font-size-xl); font-weight: 800; margin-top: var(--space-xs); color: var(--color-preto);">
@@ -134,6 +134,19 @@ export async function renderGameDetail(params) {
                         </div>
                     ` : ''}
                 </div>
+
+                <!-- Banner Informativo quando o Jogo foi Cancelado / Fechado -->
+                ${game.status === 'cancelled' ? `
+                    <div class="card" style="background: rgba(220, 53, 69, 0.05); border: 2px solid var(--color-danger); text-align: center; padding: 20px 16px; margin-bottom: var(--space-md); border-radius: var(--radius-md);">
+                        <div style="font-size: 32px; margin-bottom: 6px;">🚫</div>
+                        <h3 style="font-size: 16px; font-weight: 800; color: var(--color-danger); margin-bottom: 6px;">
+                            Desafio Fechado / Cancelado
+                        </h3>
+                        <p style="font-size: 13px; color: var(--color-preto); margin-bottom: 0; line-height: 1.45;">
+                            Este desafio foi fechado (sem adversário) e não está mais disponível para disputa ou inserção de placar.
+                        </p>
+                    </div>
+                ` : ''}
 
                 <!-- Banner Oficial de Regras da Partida -->
                 <div class="card" style="background: rgba(192, 81, 49, 0.04); border: 1.5px solid rgba(192, 81, 49, 0.25); padding: 12px 14px;">
@@ -189,9 +202,17 @@ export async function renderGameDetail(params) {
                             O link e o aviso deste desafio foram enviados no grupo do WhatsApp.<br>
                             Assim que outro tenista de <strong>Nível ${game.accepted_level}</strong> clicar no link e entrar na partida, ele entrará automaticamente aqui como seu adversário.
                         </p>
-                        <div style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #0056b3; background: rgba(0, 123, 255, 0.12); padding: 8px 18px; border-radius: 20px;">
+                        <div style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #0056b3; background: rgba(0, 123, 255, 0.12); padding: 8px 18px; border-radius: 20px; margin-bottom: 14px;">
                             <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #007bff;"></span>
                             Aguardando outro tenista aceitar o desafio pelo app...
+                        </div>
+                        <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed rgba(0, 123, 255, 0.25);">
+                            <p style="font-size: 12px; color: var(--color-grey-text); margin-bottom: 8px;">
+                                Não conseguiu adversário ou desistiu deste desafio?
+                            </p>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-open-game" style="font-size: 12px; font-weight: 700; color: var(--color-danger); border-color: rgba(220, 53, 69, 0.35); background: #ffffff;">
+                                ❌ Fechar Desafio Aberto (Sem Adversário)
+                            </button>
                         </div>
                     </div>
                 ` : ''}
@@ -228,10 +249,15 @@ export async function renderGameDetail(params) {
                             Uma notificação exclusiva com o link desta partida foi enviada diretamente no WhatsApp de <strong>${opponentName}</strong>.<br>
                             A partida ficará com status <em>Confirmada</em> assim que o atleta aceitar pelo app!
                         </p>
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(245, 158, 11, 0.3);">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-invited-game" style="font-size: 12px; font-weight: 700; color: var(--color-danger); border-color: rgba(220, 53, 69, 0.35); background: #ffffff;">
+                                ✕ Cancelar Convite e Fechar Jogo
+                            </button>
+                        </div>
                     </div>
                 ` : ''}
 
-                ${!isJoined && (game.status !== 'open' || (participants?.length || 0) >= 2) && !latestResult ? `
+                ${!isJoined && (game.status !== 'open' || (participants?.length || 0) >= 2) && !latestResult && game.status !== 'cancelled' ? `
                     <div class="card" style="text-align: center; color: var(--color-grey-text); font-size: 12px; padding: var(--space-md); margin-bottom: var(--space-md); background: rgba(0,0,0,0.02);">
                         🔒 Esta partida já possui jogadores definidos. Apenas os participantes registrados podem lançar o placar.
                     </div>
@@ -241,7 +267,7 @@ export async function renderGameDetail(params) {
                 <div class="card" style="border-left: 4px solid var(--color-saibro);">
                     <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <span>👥 Jogadores da Partida</span>
-                        ${isJoined && !latestResult ? `
+                        ${isJoined && !latestResult && game.status !== 'cancelled' ? `
                             <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-edit-opponent" style="font-size: 11px; padding: 4px 10px; width: auto;">
                                 ✏️ ${opponentParticipant ? 'Trocar Adversário' : 'Definir Adversário'}
                             </button>
@@ -470,8 +496,8 @@ export async function renderGameDetail(params) {
                     </div>
                 ` : ''}
 
-                <!-- Form de Registro de Placar (Apenas se ainda NÃO houver placar cadastrado) -->
-                ${isJoined && !latestResult ? `
+                <!-- Form de Registro de Placar (Apenas se ainda NÃO houver placar cadastrado e não estiver cancelado) -->
+                ${isJoined && !latestResult && game.status !== 'cancelled' ? `
                     <div class="card" id="card-score-form" style="${isCreator && game.status === 'open' && !opponentParticipant ? 'display: none; ' : ''}border-left: 5px solid var(--color-saibro);">
                         <div class="card-title">
                             <span>📝 Registrar Placar da Partida</span>
@@ -719,6 +745,25 @@ export async function renderGameDetail(params) {
                 alert("Erro ao recusar convite: " + errDec.message);
             }
         });
+
+        // Listener para fechar / cancelar desafio aberto manualmente pelo criador
+        const handleCloseOpenGame = async () => {
+            if (!confirm("Tem certeza que deseja fechar este desafio?\n\nEle será encerrado e cancelado no ranking.")) return;
+            try {
+                await callRPC('fn_mt_game_fechar_jogo_aberto', {
+                    p_game_id: gameId,
+                    p_customer_code: user.customer_code
+                });
+                alert("Desafio fechado com sucesso!");
+                renderGameDetail(params);
+            } catch (errClose) {
+                console.error("Erro ao fechar desafio:", errClose);
+                alert("Erro ao fechar desafio: " + (errClose.message || "Tente novamente."));
+            }
+        };
+
+        document.getElementById('btn-cancel-open-game')?.addEventListener('click', handleCloseOpenGame);
+        document.getElementById('btn-cancel-invited-game')?.addEventListener('click', handleCloseOpenGame);
 
         document.getElementById('btn-detail-booking')?.addEventListener('click', openMontrealBooking);
 

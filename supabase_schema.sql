@@ -728,3 +728,337 @@ BEGIN
 END;
 $function$;
 
+-- ====================================================================
+-- FECHAR JOGO / DESAFIO ABERTO MANUALMENTE PELO CRIADOR OU ADMIN
+-- ====================================================================
+CREATE OR REPLACE FUNCTION public.fn_mt_game_fechar_jogo_aberto(
+    p_game_id uuid,
+    p_customer_code text
+)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+DECLARE
+    v_creator_code text;
+    v_status text;
+    v_is_admin boolean := false;
+BEGIN
+    SELECT creator_customer_code, status 
+    INTO v_creator_code, v_status
+    FROM public.mt_games 
+    WHERE id = p_game_id;
+
+    IF v_status IS NULL THEN
+        RAISE EXCEPTION 'Partida não encontrada.';
+    END IF;
+
+    IF v_status NOT IN ('open', 'awaiting_confirmation') THEN
+        RAISE EXCEPTION 'Apenas partidas abertas ou aguardando confirmação podem ser fechadas (status atual: %).', v_status;
+    END IF;
+
+    SELECT COALESCE(is_admin, false) INTO v_is_admin
+    FROM public.mt_game_profiles
+    WHERE customer_code = p_customer_code;
+
+    IF v_creator_code IS DISTINCT FROM p_customer_code AND NOT v_is_admin THEN
+        RAISE EXCEPTION 'Acesso negado: apenas o criador deste desafio ou o administrador podem fechá-lo.';
+    END IF;
+
+    UPDATE public.mt_games
+    SET status = 'cancelled',
+        notes = COALESCE(notes, '') || ' [Fechado manualmente: sem adversário]',
+        updated_at = now()
+    WHERE id = p_game_id;
+
+    UPDATE public.mt_game_participants
+    SET invite_status = 'cancelled'
+    WHERE game_id = p_game_id AND invite_status = 'pending';
+
+    INSERT INTO public.mt_game_notifications (
+        game_id,
+        customer_code,
+        event_type,
+        status,
+        sent_at,
+        payload
+    ) VALUES (
+        p_game_id,
+        p_customer_code,
+        'open_game_closed_manually',
+        'sent',
+        now(),
+        jsonb_build_object(
+            'event', 'open_game_closed_manually',
+            'game_id', p_game_id,
+            'closed_by', p_customer_code
+        )
+    );
+
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Desafio aberto fechado com sucesso.'
+    );
+END;
+$function$;
+
+-- ====================================================================
+-- OBTENÇÃO DE PENDÊNCIAS DE LEMBRETE DE PLACAR & AUTO-CANCELAMENTO
+-- Executado a cada 15 min pelo n8n
+-- ====================================================================
+CREATE OR REPLACE FUNCTION public.fn_mt_game_obter_pendencias_lembrete_placar()
+RETURNS TABLE(
+    game_id uuid,
+    stage integer,
+    stage_label text,
+    athlete_customer_code text,
+    athlete_name text,
+    athlete_phone text,
+    opponent_name text,
+    game_date date,
+    start_time time without time zone,
+    level_code text,
+    game_link text,
+    formatted_message text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+DECLARE
+    r RECORD;
+    r_open RECORD;
+    v_end_time timestamptz;
+    v_now timestamptz := now();
+    v_stage integer;
+    v_stage_label text;
+    v_part1 RECORD;
+    v_part2 RECORD;
+    v_p1_phone text;
+    v_p2_phone text;
+    v_date_str text;
+    v_time_str text;
+    v_link text;
+    v_msg1 text;
+    v_msg2 text;
+BEGIN
+    -- 1. FECHAMENTO AUTOMÁTICO DE JOGOS ABERTOS COM 4 OU MAIS DIAS SEM ADVERSÁRIO / SEM RESULTADO
+    UPDATE public.mt_games g
+    SET status = 'cancelled',
+        notes = COALESCE(g.notes, '') || ' [Cancelado automaticamente após 4 dias em aberto sem adversário]',
+        updated_at = now()
+    WHERE g.status = 'open'
+      AND g.game_date <= (CURRENT_DATE - INTERVAL '4 days')
+      AND NOT EXISTS (
+          SELECT 1 FROM public.mt_game_results res WHERE res.game_id = g.id
+      );
+
+    -- 2. LEMBRETES DE PLACAR PARA PARTIDAS CONFIRMADAS (ESTÁGIOS 1, 2 E 3)
+    FOR r IN
+        SELECT 
+            g.id,
+            g.game_date,
+            g.start_time,
+            COALESCE(g.duration_minutes, 60) as duration_minutes,
+            g.accepted_level,
+            g.gender_category
+        FROM public.mt_games g
+        WHERE g.status = 'confirmed'
+          AND g.game_date >= (CURRENT_DATE - INTERVAL '14 days')
+          AND NOT EXISTS (
+              SELECT 1 FROM public.mt_game_results res WHERE res.game_id = g.id
+          )
+    LOOP
+        v_end_time := timezone('America/Sao_Paulo', (r.game_date + r.start_time)::timestamp) + (r.duration_minutes * interval '1 minute');
+
+        v_stage := NULL;
+        IF v_now >= (v_end_time + interval '4 days') THEN
+            IF NOT EXISTS (
+                SELECT 1 FROM public.mt_game_notifications n 
+                WHERE n.game_id = r.id AND n.event_type = 'score_reminder_stage3'
+            ) THEN
+                v_stage := 3;
+                v_stage_label := '3º Aviso (4 dias após)';
+            END IF;
+        ELSIF v_now >= (v_end_time + interval '24 hours') THEN
+            IF NOT EXISTS (
+                SELECT 1 FROM public.mt_game_notifications n 
+                WHERE n.game_id = r.id AND n.event_type = 'score_reminder_stage2'
+            ) THEN
+                v_stage := 2;
+                v_stage_label := '2º Aviso (Dia seguinte)';
+            END IF;
+        ELSIF v_now >= (v_end_time + interval '15 minutes') THEN
+            IF NOT EXISTS (
+                SELECT 1 FROM public.mt_game_notifications n 
+                WHERE n.game_id = r.id AND n.event_type = 'score_reminder_stage1'
+            ) THEN
+                v_stage := 1;
+                v_stage_label := '1º Aviso (15 min após)';
+            END IF;
+        END IF;
+
+        IF v_stage IS NOT NULL THEN
+            SELECT p.customer_code, COALESCE(gp.display_name, c.name, 'Atleta') as name, c.mobile_normalizado, c.mobile
+            INTO v_part1
+            FROM public.mt_game_participants p
+            LEFT JOIN public.mt_game_profiles gp ON gp.customer_code = p.customer_code
+            LEFT JOIN public.mt_clientes c ON c.customer_code = p.customer_code
+            WHERE p.game_id = r.id AND p.invite_status = 'accepted'
+            ORDER BY p.role = 'creator' DESC, p.id ASC
+            LIMIT 1 OFFSET 0;
+
+            SELECT p.customer_code, COALESCE(gp.display_name, c.name, 'Adversário') as name, c.mobile_normalizado, c.mobile
+            INTO v_part2
+            FROM public.mt_game_participants p
+            LEFT JOIN public.mt_game_profiles gp ON gp.customer_code = p.customer_code
+            LEFT JOIN public.mt_clientes c ON c.customer_code = p.customer_code
+            WHERE p.game_id = r.id AND p.invite_status = 'accepted'
+            ORDER BY p.role = 'creator' DESC, p.id ASC
+            LIMIT 1 OFFSET 1;
+
+            IF v_part1.customer_code IS NOT NULL AND v_part2.customer_code IS NOT NULL THEN
+                v_p1_phone := public.fn_mt_normalizar_telefone(COALESCE(v_part1.mobile_normalizado, v_part1.mobile));
+                v_p2_phone := public.fn_mt_normalizar_telefone(COALESCE(v_part2.mobile_normalizado, v_part2.mobile));
+
+                IF length(v_p1_phone) IN (10, 11) THEN v_p1_phone := '55' || v_p1_phone; END IF;
+                IF length(v_p2_phone) IN (10, 11) THEN v_p2_phone := '55' || v_p2_phone; END IF;
+
+                v_date_str := to_char(r.game_date, 'DD/MM/YYYY');
+                v_time_str := to_char(r.start_time, 'HH24:MI');
+                v_link := 'https://ranking.montrealtenis.com.br/#/jogos/' || r.id;
+
+                IF v_stage = 1 THEN
+                    v_msg1 := '🎾 *LEMBRETE DE PLACAR: COMO FOI A PARTIDA?* 🎾' || E'\n\n' ||
+                              'Olá, *' || v_part1.name || '*!' || E'\n' ||
+                              'Sua partida contra *' || v_part2.name || '* acabou de encerrar no saibro da Montreal! 🔥' || E'\n\n' ||
+                              '🏆 *Nível:* Nível ' || r.accepted_level || E'\n' ||
+                              '📅 *Data:* ' || v_date_str || ' às ' || v_time_str || E'\n' ||
+                              '📍 *Local:* Montreal Tênis Clube' || E'\n\n' ||
+                              'Para computar os seus pontos (+30 vitória / +10 participação) e atualizar sua posição no ranking, acesse o aplicativo e registre o placar final:' || E'\n' ||
+                              '👉 ' || v_link || E'\n\n' ||
+                              'Qualquer um dos dois jogadores pode lançar o resultado! 🎾';
+
+                    v_msg2 := '🎾 *LEMBRETE DE PLACAR: COMO FOI A PARTIDA?* 🎾' || E'\n\n' ||
+                              'Olá, *' || v_part2.name || '*!' || E'\n' ||
+                              'Sua partida contra *' || v_part1.name || '* acabou de encerrar no saibro da Montreal! 🔥' || E'\n\n' ||
+                              '🏆 *Nível:* Nível ' || r.accepted_level || E'\n' ||
+                              '📅 *Data:* ' || v_date_str || ' às ' || v_time_str || E'\n' ||
+                              '📍 *Local:* Montreal Tênis Clube' || E'\n\n' ||
+                              'Para computar os seus pontos (+30 vitória / +10 participação) e atualizar sua posição no ranking, acesse o aplicativo e registre o placar final:' || E'\n' ||
+                              '👉 ' || v_link || E'\n\n' ||
+                              'Qualquer um dos dois jogadores pode lançar o resultado! 🎾';
+                ELSIF v_stage = 2 THEN
+                    v_msg1 := '🎾 *LEMBRETE: PLACAR PENDENTE NO RANKING MONTREAL* 🎾' || E'\n\n' ||
+                              'Olá, *' || v_part1.name || '*!' || E'\n' ||
+                              'O resultado da sua partida de ontem contra *' || v_part2.name || '* ainda não foi registrado no aplicativo.' || E'\n\n' ||
+                              'Para que os pontos da rodada sejam contabilizados para você no ranking oficial, não se esqueça de informar o placar:' || E'\n' ||
+                              '👉 ' || v_link || E'\n\n' ||
+                              'Leva menos de 1 minuto para lançar! ⏱️🎾';
+
+                    v_msg2 := '🎾 *LEMBRETE: PLACAR PENDENTE NO RANKING MONTREAL* 🎾' || E'\n\n' ||
+                              'Olá, *' || v_part2.name || '*!' || E'\n' ||
+                              'O resultado da sua partida de ontem contra *' || v_part1.name || '* ainda não foi registrado no aplicativo.' || E'\n\n' ||
+                              'Para que os pontos da rodada sejam contabilizados para você no ranking oficial, não se esqueça de informar o placar:' || E'\n' ||
+                              '👉 ' || v_link || E'\n\n' ||
+                              'Leva menos de 1 minuto para lançar! ⏱️🎾';
+                ELSE
+                    v_msg1 := '⚠️ *ÚLTIMO AVISO: PLACAR DA PARTIDA NÃO REGISTRADO* ⚠️' || E'\n\n' ||
+                              'Olá, *' || v_part1.name || '*!' || E'\n' ||
+                              'A partida realizada em ' || v_date_str || ' entre você e *' || v_part2.name || '* ainda consta sem resultado no Ranking Montreal.' || E'\n\n' ||
+                              'Lembre-se que partidas sem placar não pontuam na tabela. Por favor, acesse o app e conclua o lançamento do placar:' || E'\n' ||
+                              '👉 ' || v_link || E'\n\n' ||
+                              'Contamos com sua colaboração para manter o ranking atualizado! 🎾';
+
+                    v_msg2 := '⚠️ *ÚLTIMO AVISO: PLACAR DA PARTIDA NÃO REGISTRADO* ⚠️' || E'\n\n' ||
+                              'Olá, *' || v_part2.name || '*!' || E'\n' ||
+                              'A partida realizada em ' || v_date_str || ' entre você e *' || v_part1.name || '* ainda consta sem resultado no Ranking Montreal.' || E'\n\n' ||
+                              'Lembre-se que partidas sem placar não pontuam na tabela. Por favor, acesse o app e conclua o lançamento do placar:' || E'\n' ||
+                              '👉 ' || v_link || E'\n\n' ||
+                              'Contamos com sua colaboração para manter o ranking atualizado! 🎾';
+                END IF;
+
+                IF v_p1_phone IS NOT NULL AND length(v_p1_phone) >= 10 THEN
+                    RETURN QUERY SELECT 
+                        r.id, v_stage, v_stage_label, v_part1.customer_code, v_part1.name, v_p1_phone, v_part2.name, r.game_date, r.start_time, r.accepted_level, v_link, v_msg1;
+                END IF;
+
+                IF v_p2_phone IS NOT NULL AND length(v_p2_phone) >= 10 THEN
+                    RETURN QUERY SELECT 
+                        r.id, v_stage, v_stage_label, v_part2.customer_code, v_part2.name, v_p2_phone, v_part1.name, r.game_date, r.start_time, r.accepted_level, v_link, v_msg2;
+                END IF;
+            END IF;
+        END IF;
+    END LOOP;
+
+    -- 3. AVISO PARA O CRIADOR DE JOGO ABERTO (APÓS A DATA DO JOGO SEM ADVERSÁRIO)
+    FOR r_open IN
+        SELECT 
+            g.id,
+            g.game_date,
+            g.start_time,
+            COALESCE(g.duration_minutes, 60) as duration_minutes,
+            g.accepted_level,
+            g.creator_customer_code
+        FROM public.mt_games g
+        WHERE g.status = 'open'
+          AND g.game_date <= CURRENT_DATE
+          AND g.game_date >= (CURRENT_DATE - INTERVAL '4 days')
+          AND g.creator_customer_code IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM public.mt_game_results res WHERE res.game_id = g.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM public.mt_game_notifications n 
+              WHERE n.game_id = g.id AND n.event_type = 'score_reminder_stage4'
+          )
+    LOOP
+        v_end_time := timezone('America/Sao_Paulo', (r_open.game_date + r_open.start_time)::timestamp) + (r_open.duration_minutes * interval '1 minute');
+
+        -- Dispara o aviso após o término do dia do jogo (a partir de 12 horas após o jogo até antes de 4 dias)
+        IF v_now >= (v_end_time + interval '12 hours') AND v_now < (v_end_time + interval '4 days') THEN
+            SELECT gp.customer_code, COALESCE(gp.display_name, c.name, 'Atleta') as name, c.mobile_normalizado, c.mobile
+            INTO v_part1
+            FROM public.mt_game_profiles gp
+            LEFT JOIN public.mt_clientes c ON c.customer_code = gp.customer_code
+            WHERE gp.customer_code = r_open.creator_customer_code
+            LIMIT 1;
+
+            IF v_part1.customer_code IS NOT NULL THEN
+                v_p1_phone := public.fn_mt_normalizar_telefone(COALESCE(v_part1.mobile_normalizado, v_part1.mobile));
+                IF length(v_p1_phone) IN (10, 11) THEN v_p1_phone := '55' || v_p1_phone; END IF;
+
+                IF v_p1_phone IS NOT NULL AND length(v_p1_phone) >= 10 THEN
+                    v_date_str := to_char(r_open.game_date, 'DD/MM/YYYY');
+                    v_time_str := to_char(r_open.start_time, 'HH24:MI');
+                    v_link := 'https://ranking.montrealtenis.com.br/#/jogos/' || r_open.id;
+
+                    v_msg1 := '🎾 *SEU DESAFIO ABERTO NO RANKING MONTREAL* 🎾' || E'\n\n' ||
+                              'Olá, *' || v_part1.name || '*!' || E'\n' ||
+                              'Você abriu um desafio no Ranking para *' || v_date_str || ' às ' || v_time_str || '*, mas ele ainda consta em aberto (sem adversário definido) no aplicativo.' || E'\n\n' ||
+                              '❓ *A partida aconteceu com algum tenista?*' || E'\n' ||
+                              '• *Se jogou com alguém:* Acesse o link abaixo para vincular o adversário e lançar o placar:' || E'\n' ||
+                              '👉 ' || v_link || E'\n\n' ||
+                              '• *Se não conseguiu adversário:* Você pode fechar o desafio pelo app no botão "Fechar Desafio".' || E'\n\n' ||
+                              '⏱️ *Aviso:* Caso não informe o placar ou não feche manualmente, este desafio será *cancelado e fechado automaticamente em até 4 dias*. 🎾';
+
+                    RETURN QUERY SELECT 
+                        r_open.id, 
+                        4 as stage, 
+                        'Aviso: Desafio Aberto Sem Adversário' as stage_label, 
+                        v_part1.customer_code as athlete_customer_code, 
+                        v_part1.name as athlete_name, 
+                        v_p1_phone as athlete_phone, 
+                        'Sem Adversário' as opponent_name, 
+                        r_open.game_date, 
+                        r_open.start_time, 
+                        r_open.accepted_level as level_code, 
+                        v_link as game_link, 
+                        v_msg1 as formatted_message;
+                END IF;
+            END IF;
+        END IF;
+    END LOOP;
+END;
+$function$;
+
+
