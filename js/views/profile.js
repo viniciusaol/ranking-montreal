@@ -27,7 +27,10 @@ export async function renderProfile() {
                 <div class="ranking-avatar" style="width: 72px; height: 72px; font-size: 28px; margin: 0 auto var(--space-sm) auto;">
                     ${getInitials(user.display_name)}
                 </div>
-                <h3 style="font-size: var(--font-size-lg); font-weight: 800;">${user.display_name}</h3>
+                <h3 style="font-size: var(--font-size-lg); font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <span>${user.display_name}</span>
+                    <button type="button" onclick="document.getElementById('profile-display-name')?.focus(); document.getElementById('profile-edit-section')?.scrollIntoView({ behavior: 'smooth' });" style="background: none; border: none; font-size: 15px; cursor: pointer; opacity: 0.7; padding: 2px 4px;" title="Editar Nome">✏️</button>
+                </h3>
                 <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: var(--space-sm);">
                     ${formatPhone(user.phone)}
                 </p>
@@ -143,10 +146,19 @@ export async function renderProfile() {
                 <span style="font-size: 18px; color: var(--color-saibro); font-weight: 800;">→</span>
             </div>
 
-            <!-- Editar Dados Esportivos -->
-            <div class="card">
-                <span class="card-title" style="font-size: var(--font-size-base);">⚙️ Configurações Esportivas</span>
-                <div class="form-group">
+            <!-- Editar Dados do Perfil e Nível Esportivo -->
+            <div class="card" id="profile-edit-section">
+                <span class="card-title" style="font-size: var(--font-size-base);">⚙️ Editar Dados do Perfil</span>
+
+                <div class="form-group" style="text-align: left;">
+                    <label class="form-label">Nome Exibido no Ranking</label>
+                    <input type="text" class="form-control" id="profile-display-name" value="${user.display_name || user.name || ''}" placeholder="Seu nome no ranking" maxlength="50" required>
+                    <span style="font-size: 11px; color: var(--color-grey-text); display: block; margin-top: 4px;">
+                        Nome visível para outros atletas no ranking, convites de jogos e histórico.
+                    </span>
+                </div>
+
+                <div class="form-group" style="text-align: left;">
                     <label class="form-label">Seu Nível Atual</label>
                     <select class="form-control" id="profile-level">
                         <option value="A" ${user.current_level === 'A' ? 'selected' : ''}>Nível A (Avançado/Competitivo)</option>
@@ -156,11 +168,11 @@ export async function renderProfile() {
                     </select>
                 </div>
 
-                <div id="level-desc-box" style="font-size: var(--font-size-xs); color: var(--color-text-secondary); background-color: var(--color-bg-input); padding: var(--space-sm); border-radius: var(--radius-sm); margin-bottom: var(--space-md);">
+                <div id="level-desc-box" style="font-size: var(--font-size-xs); color: var(--color-text-secondary); background-color: var(--color-bg-input); padding: var(--space-sm); border-radius: var(--radius-sm); margin-bottom: var(--space-md); text-align: left;">
                     ${CONFIG.LEVEL_DESCRIPTIONS[user.current_level]}
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" style="text-align: left;">
                     <label class="form-label">Categoria de Ranking (Gênero)</label>
                     <select class="form-control" id="profile-gender">
                         <option value="Masculino" ${user.gender !== 'Feminino' ? 'selected' : ''}>🎾 Masculino</option>
@@ -168,7 +180,7 @@ export async function renderProfile() {
                     </select>
                 </div>
 
-                <button class="btn btn-primary btn-sm" id="btn-save-profile-settings">
+                <button class="btn btn-primary" id="btn-save-profile-settings" style="width: 100%;">
                     Salvar Alterações
                 </button>
             </div>
@@ -191,22 +203,39 @@ export async function renderProfile() {
     });
 
     document.getElementById('btn-save-profile-settings')?.addEventListener('click', async () => {
+        const inputName = document.getElementById('profile-display-name');
+        const newName = (inputName?.value || '').trim();
         const newLevel = document.getElementById('profile-level').value;
         const newGender = document.getElementById('profile-gender').value;
+
+        if (!newName || newName.length < 3) {
+            alert("Por favor, digite um nome de exibição válido (mínimo de 3 caracteres).");
+            inputName?.focus();
+            return;
+        }
+
         const btn = document.getElementById('btn-save-profile-settings');
         btn.disabled = true;
-        btn.textContent = "Salvando...";
+        btn.textContent = "Salvando alterações...";
 
         try {
             await callRPC('fn_mt_game_salvar_perfil', {
                 p_customer_code: user.customer_code,
-                p_display_name: user.display_name,
+                p_display_name: newName,
                 p_level: newLevel,
                 p_gender: newGender
             });
+            user.display_name = newName;
             user.current_level = newLevel;
             user.gender = newGender;
             state.setUser(user);
+
+            // Atualiza o header superior dinamicamente
+            const badgeName = document.getElementById('header-user-name');
+            const badgeLevel = document.getElementById('header-user-level');
+            if (badgeName) badgeName.textContent = newName.split(' ')[0];
+            if (badgeLevel) badgeLevel.textContent = `Nível ${newLevel}`;
+
             alert("Perfil esportivo atualizado com sucesso!");
             renderProfile();
         } catch (e) {
