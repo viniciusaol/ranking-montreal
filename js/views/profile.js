@@ -35,24 +35,35 @@ export async function renderProfile() {
                 <div style="display: flex; justify-content: center; gap: var(--space-xs); margin-bottom: var(--space-md); flex-wrap: wrap;">
                     <span class="badge badge-level-${user.current_level}">Nível ${user.current_level}</span>
                     <span class="badge" style="background: rgba(0,0,0,0.06); color: var(--color-preto); font-weight: 700;">🎾 ${user.gender || 'Masculino'}</span>
-                    <span class="badge badge-success">Ranking #${user.rank_position} (Temporada ${seasonYear})</span>
+                    <span class="badge badge-success">Ranking #${user.rank_position || 1} (Temporada ${seasonYear})</span>
                     ${user.is_admin ? `<span class="badge badge-danger">Admin</span>` : ''}
                 </div>
 
-                <div style="display: flex; justify-content: space-around; background-color: var(--color-bg-input); padding: var(--space-sm); border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+                <!-- Estatísticas e Pontuação Oficial -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background-color: var(--color-bg-input); padding: var(--space-sm); border-radius: var(--radius-md); border: 1px solid var(--color-border); text-align: center;">
                     <div>
-                        <span style="font-size: var(--font-size-lg); font-weight: 800; color: var(--color-primary-yellow);">${user.total_points}</span>
-                        <span style="display: block; font-size: 11px; color: var(--color-text-muted);">Pontos (até 30/11)</span>
+                        <span style="font-size: 16px; font-weight: 900; color: var(--color-saibro); display: block;">${Math.round(Number(user.total_points) || 0)}</span>
+                        <span style="display: block; font-size: 10px; color: var(--color-saibro); font-weight: 700;">Pts Ranking</span>
+                    </div>
+                    <div>
+                        <span style="font-size: 16px; font-weight: 900; color: #0284c7; display: block;">${Number(user.win_rate) || 0}%</span>
+                        <span style="display: block; font-size: 10px; color: var(--color-grey-text);">Aproveit.</span>
+                    </div>
+                    <div>
+                        <span style="font-size: 16px; font-weight: 900; color: var(--color-preto); display: block;">${Number(user.accumulated_points) || 0}</span>
+                        <span style="display: block; font-size: 10px; color: var(--color-grey-text);">Pts Acum.</span>
                     </div>
                     <div id="btn-profile-games-stat" style="cursor: pointer;" title="Ver Meus Jogos">
-                        <span style="font-size: var(--font-size-lg); font-weight: 800; color: var(--color-saibro); text-decoration: underline;">${user.total_games}</span>
-                        <span style="display: block; font-size: 11px; color: var(--color-saibro); font-weight: 700;">Jogos →</span>
-                    </div>
-                    <div>
-                        <span style="font-size: var(--font-size-lg); font-weight: 800; color: var(--color-success);">${user.total_wins}</span>
-                        <span style="display: block; font-size: 11px; color: var(--color-text-muted);">Vitórias</span>
+                        <span style="font-size: 16px; font-weight: 900; color: var(--color-success); display: block;">${user.total_wins || 0}V <span style="font-size: 12px; color: var(--color-grey-text);">/ ${user.total_games || 0}J</span></span>
+                        <span style="display: block; font-size: 10px; color: var(--color-success); font-weight: 700;">Vitórias →</span>
                     </div>
                 </div>
+
+                ${Number(user.inactivity_penalty_pct) > 0 ? `
+                    <div style="margin-top: 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: 8px 10px; font-size: 11px; color: #991b1b; text-align: left; line-height: 1.4;">
+                        ⚠️ <strong>Penalização por Inatividade (-${user.inactivity_penalty_pct}%):</strong> Você está há <strong>${user.days_inactive} dias</strong> sem disputar uma partida oficial. Jogue uma nova partida para reiniciar o prazo de inatividade!
+                    </div>
+                ` : ''}
             </div>
 
             <!-- Card de Destaque: Retrospectiva do Ano & Story Instagram -->

@@ -293,21 +293,29 @@ async function loadRankingList(level, gender, year) {
         }
 
         listContainer.innerHTML = `
+            <div style="font-size: 11px; color: var(--color-grey-text); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; padding: 0 4px; flex-wrap: wrap; gap: 4px;">
+                <span>Cálculo: <strong>Pontos Acum. × % Apr.</strong></span>
+                <span>Desempate: <strong>Apr. > Vitórias</strong></span>
+            </div>
             <div class="ranking-list">
                 ${ranking.map((item, idx) => {
                     const isMe = user && String(user.customer_code).trim() === String(item.customer_code).trim();
                     const isChampion = !isCurrentSeason && idx === 0 && item.total_points > 0;
+                    const finalPoints = Math.round(Number(item.total_points) || 0);
+                    const accumPoints = Number(item.accumulated_points) || 0;
+                    const winRate = Number(item.win_rate) || 0;
+                    const penaltyPct = Number(item.inactivity_penalty_pct) || 0;
 
                     let posBadge = `#${item.rank_position || (idx + 1)}`;
-                    if (idx === 0 && item.total_points > 0) posBadge = '🥇';
-                    else if (idx === 1 && item.total_points > 0) posBadge = '🥈';
-                    else if (idx === 2 && item.total_points > 0) posBadge = '🥉';
+                    if (idx === 0 && finalPoints > 0) posBadge = '🥇';
+                    else if (idx === 1 && finalPoints > 0) posBadge = '🥈';
+                    else if (idx === 2 && finalPoints > 0) posBadge = '🥉';
 
                     return `
                         <div class="ranking-card" style="
                             ${isChampion ? 'border: 2px solid #f59e0b; background: linear-gradient(135deg, rgba(254, 243, 199, 0.4), #ffffff);' : (isMe ? 'border: 2px solid var(--color-saibro); background-color: rgba(192, 81, 49, 0.04);' : '')}
                         ">
-                            <div class="ranking-pos" style="${idx < 3 && item.total_points > 0 ? 'font-size: 20px;' : ''}">
+                            <div class="ranking-pos" style="${idx < 3 && finalPoints > 0 ? 'font-size: 20px;' : ''}">
                                 ${posBadge}
                             </div>
                             <div class="ranking-avatar" style="${isChampion ? 'background: #f59e0b; color: white;' : ''}">
@@ -319,15 +327,18 @@ async function loadRankingList(level, gender, year) {
                                     ${isMe ? '<span style="font-size: 10px; font-weight: 800; background: var(--color-saibro); color: #fff; padding: 1px 6px; border-radius: 4px; vertical-align: middle; margin-left: 4px;">VOCÊ</span>' : ''}
                                     ${isChampion ? `<span class="badge" style="font-size: 10px; font-weight: 800; background: #fef3c7; color: #b45309; border: 1px solid #fde68a; margin-left: 4px;">👑 Campeão ${year}</span>` : ''}
                                     ${item.current_level && item.current_level !== level ? `<span class="badge" style="font-size: 10px; padding: 2px 6px; margin-left: 4px; background: rgba(192, 81, 49, 0.12); color: var(--color-saibro); font-weight: 800; border: 1px solid rgba(192, 81, 49, 0.3);">Desafiante (Nível ${item.current_level})</span>` : ''}
+                                    ${penaltyPct > 0 ? `<span class="badge" style="font-size: 9px; padding: 1px 5px; margin-left: 4px; background: #fee2e2; color: #b91c1c; font-weight: 800;" title="Inativo há ${item.days_inactive} dias (-${penaltyPct}%)">⚠️ -${penaltyPct}% inat.</span>` : ''}
                                 </div>
                                 <div class="ranking-stats">
                                     <span>${item.total_games} jogos</span> • 
                                     <span style="color: var(--color-success); font-weight: 700;">${item.total_wins}V</span> • 
-                                    <span style="color: var(--color-danger); font-weight: 700;">${item.total_losses}D</span>
+                                    <span style="color: var(--color-danger); font-weight: 700;">${item.total_losses}D</span> • 
+                                    <span style="color: var(--color-saibro); font-weight: 800;">${winRate}% apr.</span>
                                 </div>
                             </div>
-                            <div class="ranking-points" style="${isChampion ? 'color: #b45309; font-weight: 800;' : ''}">
-                                ${item.total_points} pts
+                            <div class="ranking-points" style="text-align: right; ${isChampion ? 'color: #b45309; font-weight: 800;' : ''}">
+                                <div style="font-size: 16px; font-weight: 900; color: var(--color-saibro);">${finalPoints} pts</div>
+                                <div style="font-size: 10px; color: var(--color-grey-text); font-weight: 600;">${accumPoints} acum.</div>
                             </div>
                         </div>
                     `;

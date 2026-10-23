@@ -283,6 +283,27 @@ export async function renderGameCreate() {
                 e.target.value = '';
                 return;
             }
+
+            // Validação de limite de 2 confrontos a cada 30 dias (Regra 5 do regulamento)
+            const gameDateVal = document.getElementById('game-date')?.value || new Date().toISOString().split('T')[0];
+            try {
+                const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
+                    p_player1_code: user.customer_code,
+                    p_player2_code: opt.value,
+                    p_game_date: gameDateVal
+                });
+                if (limitCheck && limitCheck.length > 0 && !limitCheck[0].can_play) {
+                    alert(`🚫 CONFRONTO NÃO PERMITIDO PELO REGULAMENTO:\n\n${limitCheck[0].message}`);
+                    e.target.value = '';
+                    selectedInvitedPlayer = null;
+                    const resultBox = document.getElementById('invited-player-result');
+                    if (resultBox) resultBox.style.display = 'none';
+                    return;
+                }
+            } catch (errLimit) {
+                console.warn("Erro ao verificar limite de confrontos:", errLimit);
+            }
+
             selectedInvitedPlayer = {
                 customer_code: opt.value,
                 display_name: opt.getAttribute('data-name'),
@@ -328,6 +349,26 @@ export async function renderGameCreate() {
                     phoneInput.value = '';
                     return;
                 }
+
+                // Validação de limite de 2 confrontos a cada 30 dias (Regra 5 do regulamento)
+                const gameDateVal = document.getElementById('game-date')?.value || new Date().toISOString().split('T')[0];
+                try {
+                    const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
+                        p_player1_code: user.customer_code,
+                        p_player2_code: foundData.customer_code,
+                        p_game_date: gameDateVal
+                    });
+                    if (limitCheck && limitCheck.length > 0 && !limitCheck[0].can_play) {
+                        alert(`🚫 CONFRONTO NÃO PERMITIDO PELO REGULAMENTO:\n\n${limitCheck[0].message}`);
+                        phoneInput.value = '';
+                        selectedInvitedPlayer = null;
+                        if (resultBox) resultBox.style.display = 'none';
+                        return;
+                    }
+                } catch (errLimit) {
+                    console.warn("Erro ao verificar limite de confrontos:", errLimit);
+                }
+
                 selectedInvitedPlayer = {
                     customer_code: foundData.customer_code,
                     display_name: foundData.display_name,
@@ -418,6 +459,22 @@ async function handleGameCreation(user) {
     if (mode === 'invited' && !selectedInvitedPlayer) {
         alert("Por favor, selecione um jogador recente ou faça a busca pelo número de telefone.");
         return;
+    }
+
+    if (mode === 'invited' && selectedInvitedPlayer) {
+        try {
+            const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
+                p_player1_code: user.customer_code,
+                p_player2_code: selectedInvitedPlayer.customer_code,
+                p_game_date: gameDateVal || new Date().toISOString().split('T')[0]
+            });
+            if (limitCheck && limitCheck.length > 0 && !limitCheck[0].can_play) {
+                alert(`🚫 CONFRONTO NÃO PERMITIDO PELO REGULAMENTO:\n\n${limitCheck[0].message}`);
+                return;
+            }
+        } catch (errLimit) {
+            console.warn("Erro ao verificar limite de confrontos:", errLimit);
+        }
     }
 
     btn.disabled = true;

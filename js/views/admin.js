@@ -93,32 +93,32 @@ export async function renderAdmin() {
                     <!-- Pontuação Base -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label" style="font-weight: 700; font-size: 12px;">🏆 Pontos por Vitória</label>
+                            <label class="form-label" style="font-weight: 700; font-size: 12px;">🏆 Pontos Adicionais por Vitória</label>
                             <input type="number" class="form-control" id="cfg-points-winner" min="1" max="500" required style="font-weight: 800; font-size: 16px; color: var(--color-saibro);">
-                            <span style="font-size: 10px; color: var(--color-grey-text); display: block; margin-top: 2px;">Pontos concedidos ao ganhador</span>
+                            <span style="font-size: 10px; color: var(--color-grey-text); display: block; margin-top: 2px;">Adicional somado à participação para o vencedor (+30)</span>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label" style="font-weight: 700; font-size: 12px;">🎾 Pontos Participação / Derrota</label>
+                            <label class="form-label" style="font-weight: 700; font-size: 12px;">🎾 Pontos de Participação</label>
                             <input type="number" class="form-control" id="cfg-points-loser" min="0" max="500" required style="font-weight: 800; font-size: 16px;">
-                            <span style="font-size: 10px; color: var(--color-grey-text); display: block; margin-top: 2px;">Pontos concedidos ao perdedor</span>
+                            <span style="font-size: 10px; color: var(--color-grey-text); display: block; margin-top: 2px;">Concedido a ambos independentemente do resultado (+10)</span>
                         </div>
                     </div>
 
                     <!-- Bônus e Critérios Extras (Colapsável) -->
                     <details style="background: rgba(0,0,0,0.02); border: 1px solid var(--color-grey-border); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 14px;">
                         <summary style="font-size: 12px; font-weight: 800; color: var(--color-preto); cursor: pointer;">
-                            ✨ Bônus Adicionais & Critérios Extras (Opcionais)
+                            ✨ Bônus Adicionais & Critérios Oficiais
                         </summary>
                         <div style="font-size: 11px; color: var(--color-grey-text); margin: 6px 0 10px 0;">
-                            Deixe em <strong>0</strong> caso queira manter o critério desativado. Valores maiores que 0 serão somados aos pontos base e exibidos no regulamento.
+                            Valores maiores que 0 serão somados aos pontos base do vencedor e espelhados no regulamento oficial.
                         </div>
 
                         <div style="display: flex; flex-direction: column; gap: 10px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                                 <div>
-                                    <div style="font-weight: 700; font-size: 12px;">🔥 Vitória Dominante / Pneu</div>
-                                    <div style="font-size: 10px; color: var(--color-grey-text);">Adversário com 2 ou menos games (ex: 8x0, 8x1, 8x2)</div>
+                                    <div style="font-weight: 700; font-size: 12px;">🔥 Vitória com Pneu (8x0 em um set)</div>
+                                    <div style="font-size: 10px; color: var(--color-grey-text);">Adversário com 0 games na partida (ex: 8x0) • Padrão +5 pts</div>
                                 </div>
                                 <input type="number" class="form-control" id="cfg-bonus-bagel" min="0" max="100" style="width: 75px; text-align: center; font-weight: 700;">
                             </div>

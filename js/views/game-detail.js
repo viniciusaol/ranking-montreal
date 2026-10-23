@@ -625,6 +625,22 @@ export async function renderGameDetail(params) {
                 alert(`Você é Nível ${user.current_level} e não pode entrar em uma partida de Nível ${game.accepted_level}.\n\nRegra do Ranking: Jogadores só podem disputar partidas no seu nível atual ou 1 degrau acima (${getAllowedGameLevels(user.current_level).join(', ')}).`);
                 return;
             }
+
+            // Validação de limite de 2 confrontos a cada 30 dias (Regra 5 do regulamento)
+            try {
+                const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
+                    p_player1_code: user.customer_code,
+                    p_player2_code: game.creator_customer_code,
+                    p_game_date: game.game_date || new Date().toISOString().split('T')[0]
+                });
+                if (limitCheck && limitCheck.length > 0 && !limitCheck[0].can_play) {
+                    alert(`🚫 ENTRADA BLOQUEADA PELO REGULAMENTO:\n\n${limitCheck[0].message}`);
+                    return;
+                }
+            } catch (errLimit) {
+                console.warn("Erro ao verificar limite de confrontos:", errLimit);
+            }
+
             const btn = document.getElementById('btn-join-open-game');
             if (btn) {
                 btn.disabled = true;
@@ -1022,6 +1038,21 @@ export async function renderGameDetail(params) {
                 return;
             }
 
+            // Validação de limite de 2 confrontos a cada 30 dias (Regra 5)
+            try {
+                const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
+                    p_player1_code: user.customer_code,
+                    p_player2_code: tempSelectedOpponent.customer_code,
+                    p_game_date: game.game_date || new Date().toISOString().split('T')[0]
+                });
+                if (limitCheck && limitCheck.length > 0 && !limitCheck[0].can_play) {
+                    alert(`🚫 CONFRONTO NÃO PERMITIDO PELO REGULAMENTO:\n\n${limitCheck[0].message}`);
+                    return;
+                }
+            } catch (errLimit) {
+                console.warn("Erro ao verificar limite de confrontos:", errLimit);
+            }
+
             if (!confirm(`Confirmar a alteração do adversário para ${tempSelectedOpponent.display_name}?`)) {
                 return;
             }
@@ -1111,6 +1142,21 @@ async function submitGameScore(user, game, participants, selectedScoreOpponent =
         } catch (errPart) {
             console.warn("Erro ao vincular participante:", errPart);
         }
+    }
+
+    // Validação de limite de 2 confrontos a cada 30 dias (Regra 5)
+    try {
+        const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
+            p_player1_code: user.customer_code,
+            p_player2_code: finalOpponentCode,
+            p_game_date: game.game_date || new Date().toISOString().split('T')[0]
+        });
+        if (limitCheck && limitCheck.length > 0 && !limitCheck[0].can_play) {
+            alert(`🚫 CONFRONTO NÃO PERMITIDO PELO REGULAMENTO:\n\n${limitCheck[0].message}`);
+            return;
+        }
+    } catch (errLimit) {
+        console.warn("Erro ao verificar limite de confrontos:", errLimit);
     }
 
     // Se preencheu um lado e deixou o outro vazio com 8, assume 0 games (ex: 8x0 ou 0x8)
