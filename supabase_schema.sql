@@ -803,9 +803,11 @@ END;
 $function$;
 
 -- ====================================================================
--- OBTENÇÃO DE PENDÊNCIAS DE LEMBRETE DE PLACAR & AUTO-CANCELAMENTO
--- Executado a cada 15 min pelo n8n
+-- OBTENÇÃO DE PENDÊNCIAS DE LEMBRETE (PRÉ-JOGO, PLACAR & AUTO-CANCELAMENTO)
+-- Executado a cada 5 ou 15 min pelo n8n
 -- ====================================================================
+DROP FUNCTION IF EXISTS public.fn_mt_game_obter_pendencias_lembrete_placar();
+
 CREATE OR REPLACE FUNCTION public.fn_mt_game_obter_pendencias_lembrete_placar()
 RETURNS TABLE(
     game_id uuid,
@@ -826,7 +828,9 @@ SECURITY DEFINER
 AS $function$
 DECLARE
     r RECORD;
+    r_pre RECORD;
     r_open RECORD;
+    v_start_time timestamptz;
     v_end_time timestamptz;
     v_now timestamptz := now();
     v_stage integer;
@@ -852,7 +856,138 @@ BEGIN
           SELECT 1 FROM public.mt_game_results res WHERE res.game_id = g.id
       );
 
-    -- 2. LEMBRETES DE PLACAR PARA PARTIDAS CONFIRMADAS (ESTÁGIOS 1, 2 E 3)
+    -- ====================================================================
+    -- 2. LEMBRETE PRÉ-JOGO: 10 MINUTOS ANTES DA PARTIDA (ESTÁGIO 5)
+    -- Envia regras oficiais da partida e relembra de lançar o placar
+    -- ====================================================================
+    FOR r_pre IN
+        SELECT 
+            g.id,
+            g.game_date,
+            g.start_time,
+            COALESCE(g.duration_minutes, 60) as duration_minutes,
+            g.accepted_level,
+            g.gender_category,
+            g.location_id
+        FROM public.mt_games g
+        WHERE g.status = 'confirmed'
+          AND g.game_date >= (CURRENT_DATE - INTERVAL '1 day')
+          AND g.game_date <= (CURRENT_DATE + INTERVAL '1 day')
+          AND NOT EXISTS (
+              SELECT 1 FROM public.mt_game_results res WHERE res.game_id = g.id
+          )
+    LOOP
+        v_start_time := timezone('America/Sao_Paulo', (r_pre.game_date + r_pre.start_time)::timestamp);
+
+        -- Dispara se estiver na janela de 20 minutos antes até 5 minutos após o horário agendado
+        IF v_now >= (v_start_time - interval '20 minutes') AND v_now <= (v_start_time + interval '5 minutes') THEN
+            SELECT p.customer_code, COALESCE(gp.display_name, c.name, 'Atleta') as name, c.mobile_normalizado, c.mobile
+            INTO v_part1
+            FROM public.mt_game_participants p
+            LEFT JOIN public.mt_game_profiles gp ON gp.customer_code = p.customer_code
+            LEFT JOIN public.mt_clientes c ON c.customer_code = p.customer_code
+            WHERE p.game_id = r_pre.id AND p.invite_status = 'accepted'
+            ORDER BY p.role = 'creator' DESC, p.id ASC
+            LIMIT 1 OFFSET 0;
+
+            SELECT p.customer_code, COALESCE(gp.display_name, c.name, 'Adversário') as name, c.mobile_normalizado, c.mobile
+            INTO v_part2
+            FROM public.mt_game_participants p
+            LEFT JOIN public.mt_game_profiles gp ON gp.customer_code = p.customer_code
+            LEFT JOIN public.mt_clientes c ON c.customer_code = p.customer_code
+            WHERE p.game_id = r_pre.id AND p.invite_status = 'accepted'
+            ORDER BY p.role = 'creator' DESC, p.id ASC
+            LIMIT 1 OFFSET 1;
+
+            IF v_part1.customer_code IS NOT NULL AND v_part2.customer_code IS NOT NULL THEN
+                v_p1_phone := public.fn_mt_normalizar_telefone(COALESCE(v_part1.mobile_normalizado, v_part1.mobile));
+                v_p2_phone := public.fn_mt_normalizar_telefone(COALESCE(v_part2.mobile_normalizado, v_part2.mobile));
+
+                IF length(v_p1_phone) IN (10, 11) THEN v_p1_phone := '55' || v_p1_phone; END IF;
+                IF length(v_p2_phone) IN (10, 11) THEN v_p2_phone := '55' || v_p2_phone; END IF;
+
+                v_date_str := to_char(r_pre.game_date, 'DD/MM/YYYY');
+                v_time_str := to_char(r_pre.start_time, 'HH24:MI');
+                v_link := 'https://ranking.montrealtenis.com.br/#/jogos/' || r_pre.id;
+
+                v_msg1 := '🎾 *LEMBRETE: SUA PARTIDA COMEÇA EM BREVE!* 🎾' || E'\n\n' ||
+                          'Olá, *' || v_part1.name || '*!' || E'\n' ||
+                          'Sua partida do Ranking Montreal contra *' || v_part2.name || '* está agendada para daqui a pouco às *' || v_time_str || '* no saibro da Montreal! 🔥' || E'\n\n' ||
+                          '🏆 *Nível:* Nível ' || r_pre.accepted_level || E'\n' ||
+                          '📅 *Data:* ' || v_date_str || ' às ' || v_time_str || E'\n' ||
+                          '📍 *Local:* Montreal Tênis Clube' || E'\n\n' ||
+                          '📋 *1. FORMATO OFICIAL DAS PARTIDAS:*' || E'\n' ||
+                          '• *1 Set até 8 games (No-Ad):* Partida disputada em 1 set até 8 games.' || E'\n' ||
+                          '• *Empate em 7x7:* Disputa-se um Tiebreak até 7 pontos (com diferença de 2) e o vencedor fecha por 8x7.' || E'\n' ||
+                          '• *No-Ad (Sem vantagem):* No empate em 40x40, o recebedor escolhe o lado da quadra para receber o saque decisivo.' || E'\n\n' ||
+                          '📝 *LEMBRETE DO PLACAR:*' || E'\n' ||
+                          'Ao finalizar a partida, não se esqueçam de acessar o aplicativo e registrar o resultado para computar os pontos oficiais no ranking (+30 vitória / +10 participação):' || E'\n' ||
+                          '👉 ' || v_link || E'\n\n' ||
+                          'Qualquer um dos dois jogadores pode lançar o resultado pelo app. Boa partida e bom jogo! 🎾🔥';
+
+                v_msg2 := '🎾 *LEMBRETE: SUA PARTIDA COMEÇA EM BREVE!* 🎾' || E'\n\n' ||
+                          'Olá, *' || v_part2.name || '*!' || E'\n' ||
+                          'Sua partida do Ranking Montreal contra *' || v_part1.name || '* está agendada para daqui a pouco às *' || v_time_str || '* no saibro da Montreal! 🔥' || E'\n\n' ||
+                          '🏆 *Nível:* Nível ' || r_pre.accepted_level || E'\n' ||
+                          '📅 *Data:* ' || v_date_str || ' às ' || v_time_str || E'\n' ||
+                          '📍 *Local:* Montreal Tênis Clube' || E'\n\n' ||
+                          '📋 *1. FORMATO OFICIAL DAS PARTIDAS:*' || E'\n' ||
+                          '• *1 Set até 8 games (No-Ad):* Partida disputada em 1 set até 8 games.' || E'\n' ||
+                          '• *Empate em 7x7:* Disputa-se um Tiebreak até 7 pontos (com diferença de 2) e o vencedor fecha por 8x7.' || E'\n' ||
+                          '• *No-Ad (Sem vantagem):* No empate em 40x40, o recebedor escolhe o lado da quadra para receber o saque decisivo.' || E'\n\n' ||
+                          '📝 *LEMBRETE DO PLACAR:*' || E'\n' ||
+                          'Ao finalizar a partida, não se esqueçam de acessar o aplicativo e registrar o resultado para computar os pontos oficiais no ranking (+30 vitória / +10 participação):' || E'\n' ||
+                          '👉 ' || v_link || E'\n\n' ||
+                          'Qualquer um dos dois jogadores pode lançar o resultado pelo app. Boa partida e bom jogo! 🎾🔥';
+
+                IF v_p1_phone IS NOT NULL AND length(v_p1_phone) >= 10 THEN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM public.mt_game_notifications n 
+                        WHERE n.game_id = r_pre.id AND n.event_type = 'score_reminder_stage5' AND n.customer_code = v_part1.customer_code
+                    ) THEN
+                        RETURN QUERY SELECT 
+                            r_pre.id, 
+                            5 as stage, 
+                            'Lembrete Pré-Jogo (10 min antes)' as stage_label, 
+                            v_part1.customer_code as athlete_customer_code, 
+                            v_part1.name as athlete_name, 
+                            v_p1_phone as athlete_phone, 
+                            v_part2.name as opponent_name, 
+                            r_pre.game_date, 
+                            r_pre.start_time, 
+                            r_pre.accepted_level as level_code, 
+                            v_link as game_link, 
+                            v_msg1 as formatted_message;
+                    END IF;
+                END IF;
+
+                IF v_p2_phone IS NOT NULL AND length(v_p2_phone) >= 10 THEN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM public.mt_game_notifications n 
+                        WHERE n.game_id = r_pre.id AND n.event_type = 'score_reminder_stage5' AND n.customer_code = v_part2.customer_code
+                    ) THEN
+                        RETURN QUERY SELECT 
+                            r_pre.id, 
+                            5 as stage, 
+                            'Lembrete Pré-Jogo (10 min antes)' as stage_label, 
+                            v_part2.customer_code as athlete_customer_code, 
+                            v_part2.name as athlete_name, 
+                            v_p2_phone as athlete_phone, 
+                            v_part1.name as opponent_name, 
+                            r_pre.game_date, 
+                            r_pre.start_time, 
+                            r_pre.accepted_level as level_code, 
+                            v_link as game_link, 
+                            v_msg2 as formatted_message;
+                    END IF;
+                END IF;
+            END IF;
+        END IF;
+    END LOOP;
+
+    -- ====================================================================
+    -- 3. LEMBRETES DE PLACAR PÓS-JOGO (ESTÁGIOS 1, 2 E 3)
+    -- ====================================================================
     FOR r IN
         SELECT 
             g.id,
@@ -990,7 +1125,9 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- 3. AVISO PARA O CRIADOR DE JOGO ABERTO (APÓS A DATA DO JOGO SEM ADVERSÁRIO)
+    -- ====================================================================
+    -- 4. AVISO PARA O CRIADOR DE JOGO ABERTO (APÓS A DATA DO JOGO SEM ADVERSÁRIO)
+    -- ====================================================================
     FOR r_open IN
         SELECT 
             g.id,

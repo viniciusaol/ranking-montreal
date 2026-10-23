@@ -1,5 +1,5 @@
 {
-  "name": "Montreal Ranking - Lembretes Automáticos de Placar no WhatsApp",
+  "name": "Montreal Ranking - Lembretes Automáticos de Regras, Jogos e Placar no WhatsApp",
   "nodes": [
     {
       "parameters": {
@@ -7,13 +7,13 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "*/15 * * * *"
+              "expression": "*/5 * * * *"
             }
           ]
         }
       },
       "id": "node-schedule-cron",
-      "name": "Verificar a cada 15 minutos",
+      "name": "Verificar a cada 5 minutos",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -150,7 +150,7 @@
     }
   ],
   "connections": {
-    "Verificar a cada 15 minutos": {
+    "Verificar a cada 5 minutos": {
       "main": [
         [
           {
