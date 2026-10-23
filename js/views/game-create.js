@@ -265,7 +265,7 @@ export async function renderGameCreate() {
         if (notfoundBox) notfoundBox.style.display = 'none';
     });
 
-    document.getElementById('select-recent-opponent')?.addEventListener('change', (e) => {
+    document.getElementById('select-recent-opponent')?.addEventListener('change', async (e) => {
         const notfoundBox = document.getElementById('invited-player-notfound');
         if (notfoundBox) notfoundBox.style.display = 'none';
 
