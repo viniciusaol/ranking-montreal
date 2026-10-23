@@ -334,6 +334,21 @@ async function loadRankingList(level, gender, year) {
                                     <span style="color: var(--color-danger); font-weight: 700;">${item.total_losses}D</span> • 
                                     <span style="color: var(--color-saibro); font-weight: 800;">${winRate}% apr.</span>
                                 </div>
+                                ${user && user.is_admin ? `
+                                    <div style="margin-top: 4px;">
+                                        <select class="admin-ranking-level-select" 
+                                                data-code="${item.customer_code}" 
+                                                data-name="${item.display_name}" 
+                                                data-current="${item.current_level || level}"
+                                                title="Administrador: Alterar nível deste atleta no ranking"
+                                                style="font-size: 10px; font-weight: 800; padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(220, 38, 38, 0.4); background: #fff5f5; color: #991b1b; cursor: pointer; outline: none;">
+                                            <option value="A" ${(item.current_level || level) === 'A' ? 'selected' : ''}>👑 Nível A</option>
+                                            <option value="B" ${(item.current_level || level) === 'B' ? 'selected' : ''}>👑 Nível B</option>
+                                            <option value="C" ${(item.current_level || level) === 'C' ? 'selected' : ''}>👑 Nível C</option>
+                                            <option value="D" ${(item.current_level || level) === 'D' ? 'selected' : ''}>👑 Nível D</option>
+                                        </select>
+                                    </div>
+                                ` : ''}
                             </div>
                             <div class="ranking-points" style="text-align: right; ${isChampion ? 'color: #b45309; font-weight: 800;' : ''}">
                                 <div style="font-size: 16px; font-weight: 900; color: var(--color-saibro);">${finalPoints} pts</div>
@@ -343,6 +358,50 @@ async function loadRankingList(level, gender, year) {
                 }).join('')}
             </div>
         `;
+
+        if (user && user.is_admin) {
+            listContainer.querySelectorAll('.admin-ranking-level-select').forEach(selectEl => {
+                selectEl.addEventListener('change', async (e) => {
+                    const targetCode = selectEl.getAttribute('data-code');
+                    const targetName = selectEl.getAttribute('data-name');
+                    const prevLevel = selectEl.getAttribute('data-current');
+                    const newLevel = e.target.value;
+
+                    if (newLevel === prevLevel) return;
+
+                    const confirmed = confirm(`[ADMIN] Deseja alterar o nível de "${targetName}" de Nível ${prevLevel} para Nível ${newLevel}?`);
+                    if (!confirmed) {
+                        e.target.value = prevLevel;
+                        return;
+                    }
+
+                    selectEl.disabled = true;
+                    try {
+                        await callRPC('fn_mt_admin_alterar_nivel_atleta', {
+                            p_admin_code: user.customer_code,
+                            p_target_customer_code: targetCode,
+                            p_new_level: newLevel,
+                            p_reason: `Ajuste administrativo direto pelo ranking de ${prevLevel} para ${newLevel}.`
+                        });
+
+                        if (String(user.customer_code) === String(targetCode)) {
+                            user.current_level = newLevel;
+                            state.setUser(user);
+                            const badgeLevel = document.getElementById('header-user-level');
+                            if (badgeLevel) badgeLevel.textContent = `Nível ${newLevel}`;
+                        }
+
+                        alert(`Nível de ${targetName} alterado para Nível ${newLevel} com sucesso!`);
+                        await loadRankingList(selectedLevel, selectedGender, selectedYear);
+                    } catch (err) {
+                        alert(`Erro ao alterar nível: ${err.message}`);
+                        e.target.value = prevLevel;
+                    } finally {
+                        selectEl.disabled = false;
+                    }
+                });
+            });
+        }
     } catch (e) {
         console.error("Erro ao carregar ranking:", e);
         listContainer.innerHTML = `<p style="color: var(--color-danger); text-align: center;">Erro ao carregar dados do ranking da temporada ${year}.</p>`;

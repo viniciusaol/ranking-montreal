@@ -514,9 +514,20 @@ function renderFilteredAthletes() {
 
                 <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
                     <div style="text-align: right;">
-                        <span class="badge" style="background: rgba(194, 65, 12, 0.1); color: var(--color-saibro); font-weight: 800; font-size: 11px; padding: 2px 6px;">
-                            Nível ${item.current_level || 'C'}
-                        </span>
+                        <div style="display: flex; align-items: center; gap: 4px; justify-content: flex-end;">
+                            <span style="font-size: 10px; font-weight: 700; color: var(--color-grey-text);">Nível:</span>
+                            <select class="admin-change-level-select" 
+                                    data-code="${item.customer_code}" 
+                                    data-name="${item.display_name || item.official_name || 'Atleta'}" 
+                                    data-current="${item.current_level || 'C'}"
+                                    title="Clique para alterar o nível deste atleta"
+                                    style="font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 6px; border: 1.5px solid var(--color-saibro); background: #ffffff; color: var(--color-saibro); cursor: pointer; outline: none;">
+                                <option value="A" ${item.current_level === 'A' ? 'selected' : ''}>Nível A</option>
+                                <option value="B" ${item.current_level === 'B' ? 'selected' : ''}>Nível B</option>
+                                <option value="C" ${item.current_level === 'C' ? 'selected' : ''}>Nível C</option>
+                                <option value="D" ${item.current_level === 'D' ? 'selected' : ''}>Nível D</option>
+                            </select>
+                        </div>
                         <div style="font-size: 10px; color: var(--color-grey-text); margin-top: 2px;">
                             ${item.gender || 'Masculino'}
                         </div>
@@ -546,6 +557,57 @@ function renderFilteredAthletes() {
             </div>
         `;
     }).join('');
+
+    // Listener para alteração de nível pelo administrador
+    listContainer.querySelectorAll('.admin-change-level-select').forEach(selectEl => {
+        selectEl.addEventListener('change', async (e) => {
+            const targetCode = selectEl.getAttribute('data-code');
+            const targetName = selectEl.getAttribute('data-name');
+            const prevLevel = selectEl.getAttribute('data-current');
+            const newLevel = e.target.value;
+
+            if (newLevel === prevLevel) return;
+
+            const confirmed = confirm(`Deseja alterar o nível de "${targetName}" de Nível ${prevLevel} para Nível ${newLevel} no Ranking?`);
+            if (!confirmed) {
+                e.target.value = prevLevel;
+                return;
+            }
+
+            e.target.disabled = true;
+            try {
+                const currentUser = state.getUser();
+                await callRPC('fn_mt_admin_alterar_nivel_atleta', {
+                    p_admin_code: currentUser.customer_code,
+                    p_target_customer_code: targetCode,
+                    p_new_level: newLevel,
+                    p_reason: `Ajuste administrativo de nível de ${prevLevel} para ${newLevel}.`
+                });
+
+                selectEl.setAttribute('data-current', newLevel);
+
+                // Atualiza no cache em memória
+                const athleteObj = allActivatedAthletes.find(a => String(a.customer_code) === String(targetCode));
+                if (athleteObj) athleteObj.current_level = newLevel;
+
+                // Se o admin alterou o próprio nível
+                if (currentUser && String(currentUser.customer_code) === String(targetCode)) {
+                    currentUser.current_level = newLevel;
+                    state.setUser(currentUser);
+                    const badgeLevel = document.getElementById('header-user-level');
+                    if (badgeLevel) badgeLevel.textContent = `Nível ${newLevel}`;
+                }
+
+                alert(`Nível de ${targetName} alterado para Nível ${newLevel} com sucesso!`);
+                renderFilteredAthletes();
+            } catch (err) {
+                alert(`Erro ao alterar nível: ${err.message}`);
+                e.target.value = prevLevel;
+            } finally {
+                e.target.disabled = false;
+            }
+        });
+    });
 }
 
 async function loadRankingConfig() {

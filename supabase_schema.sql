@@ -645,5 +645,86 @@ BEGIN
         total_wins DESC,
         display_name ASC;
 END;
+
+-- -----------------------------------------------------------------------------
+-- RPC: fn_mt_admin_alterar_nivel_atleta
+-- Permite que o administrador altere o nível de qualquer atleta com histórico/auditoria
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.fn_mt_admin_alterar_nivel_atleta(
+    p_admin_code text,
+    p_target_customer_code text,
+    p_new_level character varying,
+    p_reason text DEFAULT NULL
+)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+DECLARE
+    v_is_admin boolean := false;
+    v_old_level varchar(5);
+    v_target_name text;
+BEGIN
+    SELECT is_admin INTO v_is_admin 
+    FROM public.mt_game_profiles 
+    WHERE customer_code = p_admin_code;
+
+    IF v_is_admin IS NOT TRUE THEN
+        RAISE EXCEPTION 'Acesso negado: apenas administradores da Montreal podem alterar níveis de atletas.';
+    END IF;
+
+    IF p_new_level NOT IN ('A', 'B', 'C', 'D') THEN
+        RAISE EXCEPTION 'Nível inválido: %. Escolha entre A, B, C ou D.', p_new_level;
+    END IF;
+
+    SELECT current_level, display_name 
+    INTO v_old_level, v_target_name
+    FROM public.mt_game_profiles
+    WHERE customer_code = p_target_customer_code;
+
+    IF v_old_level IS NULL THEN
+        RAISE EXCEPTION 'Atleta não encontrado no sistema.';
+    END IF;
+
+    IF v_old_level = p_new_level THEN
+        RETURN json_build_object(
+            'success', true,
+            'message', 'O atleta já está cadastrado no nível ' || p_new_level || '.',
+            'customer_code', p_target_customer_code,
+            'display_name', v_target_name,
+            'previous_level', v_old_level,
+            'new_level', p_new_level
+        );
+    END IF;
+
+    UPDATE public.mt_game_profiles
+    SET current_level = p_new_level,
+        updated_at = now()
+    WHERE customer_code = p_target_customer_code;
+
+    INSERT INTO public.mt_game_level_history (
+        customer_code, 
+        previous_level, 
+        new_level, 
+        changed_by, 
+        reason
+    )
+    VALUES (
+        p_target_customer_code, 
+        v_old_level, 
+        p_new_level, 
+        p_admin_code, 
+        COALESCE(p_reason, 'Alteração de nível efetuada pelo Administrador.')
+    );
+
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Nível de ' || v_target_name || ' alterado com sucesso de ' || v_old_level || ' para ' || p_new_level || '.',
+        'customer_code', p_target_customer_code,
+        'display_name', v_target_name,
+        'previous_level', v_old_level,
+        'new_level', p_new_level
+    );
+END;
 $function$;
 
