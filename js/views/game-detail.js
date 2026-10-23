@@ -66,9 +66,28 @@ export async function renderGameDetail(params) {
         const creatorName = isCreator ? (user.display_name || user.name || "Você") : (playerNames[game.creator_customer_code] || "Tenista da Montreal");
         const creatorFirstName = isCreator ? "Você" : creatorName.split(' ')[0];
 
-        const opponentParticipant = participants?.find(p => !isSameUser(p.customer_code, user.customer_code));
-        const opponentName = opponentParticipant ? (playerNames[opponentParticipant.customer_code] || "Adversário") : "Aguardando Adversário";
-        const opponentFirstName = opponentParticipant ? opponentName.split(' ')[0] : "A Definir";
+        // Adversário em relação ao criador da partida (qualquer participante que não seja o criador)
+        const opponentOfCreator = participants?.find(p => !isSameUser(p.customer_code, game.creator_customer_code));
+
+        // Determina quem é o participante adversário dependendo de quem está visualizando:
+        // - Se o usuário logado está na partida:
+        //     - se é o criador, seu adversário é o opponentOfCreator (ou null se ainda for vaga aberta)
+        //     - se não é o criador (é o desafiante), seu adversário é o criador
+        // - Se o usuário logado NÃO está na partida (visitante vendo o desafio):
+        //     - o adversário mostrado no confronto é o opponentOfCreator (ou null se for vaga aberta)
+        let opponentParticipant = null;
+        if (isJoined) {
+            opponentParticipant = isCreator 
+                ? opponentOfCreator 
+                : participants?.find(p => isSameUser(p.customer_code, game.creator_customer_code));
+        } else {
+            opponentParticipant = opponentOfCreator;
+        }
+
+        const opponentName = opponentParticipant 
+            ? (playerNames[opponentParticipant.customer_code] || (isJoined && !isCreator ? creatorName : "Adversário")) 
+            : (isJoined ? "Aguardando Adversário" : "Vaga Aberta");
+        const opponentFirstName = opponentParticipant ? opponentName.split(' ')[0] : (isJoined ? "A Definir" : "Vaga Aberta");
         const userFirstName = (user.display_name || user.name || "Você").split(' ')[0];
 
         // Busca o resultado completo cadastrado via RPC

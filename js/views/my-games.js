@@ -379,26 +379,40 @@ async function loadGamesList(user) {
                     }
 
                     // Identificação dos jogadores e adversário
+                    const isCreator = isSameUser(game.creator_customer_code, user.customer_code);
                     const gameParts = (allParticipants || []).filter(p => p.game_id === game.id);
                     const myPart = gameParts.find(p => isSameUser(p.customer_code, user.customer_code));
-                    const isUserInvolved = !!myPart || isSameUser(game.creator_customer_code, user.customer_code);
+                    const isUserInvolved = !!myPart || isCreator;
 
-                    const oppPart = gameParts.find(p => !isSameUser(p.customer_code, user.customer_code));
-                    let oppName = null;
-                    let oppLevel = null;
+                    // O adversário em relação ao criador é o participante que NÃO é o criador
+                    const oppOfCreatorPart = gameParts.find(p => !isSameUser(p.customer_code, game.creator_customer_code));
+                    const creatorProf = playerMap[game.creator_customer_code];
 
-                    if (oppPart) {
-                        const oppProf = playerMap[oppPart.customer_code];
-                        oppName = oppProf?.display_name || "Adversário";
-                        oppLevel = oppProf?.current_level;
-                    } else if (!isSameUser(game.creator_customer_code, user.customer_code)) {
-                        const creatorProf = playerMap[game.creator_customer_code];
-                        oppName = creatorProf?.display_name || "Tenista Montreal";
-                        oppLevel = creatorProf?.current_level;
+                    let leftPlayerName = "";
+                    let rightPlayerName = null;
+                    let rightPlayerLevel = null;
+
+                    if (isUserInvolved) {
+                        leftPlayerName = "Você";
+                        if (isCreator) {
+                            if (oppOfCreatorPart) {
+                                const oppProf = playerMap[oppOfCreatorPart.customer_code];
+                                rightPlayerName = oppProf?.display_name || "Adversário";
+                                rightPlayerLevel = oppProf?.current_level;
+                            }
+                        } else {
+                            rightPlayerName = creatorProf?.display_name || "Criador do Desafio";
+                            rightPlayerLevel = creatorProf?.current_level;
+                        }
+                    } else {
+                        // Visitante vendo o desafio de outro tenista
+                        leftPlayerName = creatorProf?.display_name || "Tenista Montreal";
+                        if (oppOfCreatorPart) {
+                            const oppProf = playerMap[oppOfCreatorPart.customer_code];
+                            rightPlayerName = oppProf?.display_name || "Adversário";
+                            rightPlayerLevel = oppProf?.current_level;
+                        }
                     }
-
-                    const isCreator = isSameUser(game.creator_customer_code, user.customer_code);
-                    const creatorName = isCreator ? "Você" : (playerMap[game.creator_customer_code]?.display_name || "Tenista Montreal");
 
                     // Resultado da pessoa logada
                     const isWinner = res && isSameUser(res.winner_customer_code, user.customer_code);
@@ -448,7 +462,7 @@ async function loadGamesList(user) {
                                         👤
                                     </div>
                                     <span style="font-size: 13px; font-weight: 800; color: var(--color-preto);">
-                                        ${isUserInvolved ? 'Você' : creatorName}
+                                        ${leftPlayerName}
                                     </span>
                                 </div>
 
@@ -457,10 +471,10 @@ async function loadGamesList(user) {
                                 </div>
 
                                 <div style="display: flex; align-items: center; gap: 6px; text-align: right;">
-                                    ${oppName ? `
+                                    ${rightPlayerName ? `
                                         <div>
-                                            <span style="font-size: 13px; font-weight: 800; color: var(--color-preto); display: block;">${oppName}</span>
-                                            ${oppLevel ? `<span style="font-size: 10px; color: var(--color-grey-text); font-weight: 600;">Nível ${oppLevel}</span>` : ''}
+                                            <span style="font-size: 13px; font-weight: 800; color: var(--color-preto); display: block;">${rightPlayerName}</span>
+                                            ${rightPlayerLevel ? `<span style="font-size: 10px; color: var(--color-grey-text); font-weight: 600;">Nível ${rightPlayerLevel}</span>` : ''}
                                         </div>
                                         <div style="width: 26px; height: 26px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; border: 1px solid rgba(2,132,199,0.2);">
                                             🎾
