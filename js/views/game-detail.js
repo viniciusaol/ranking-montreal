@@ -4,7 +4,7 @@
 
 import { state } from '../state.js';
 import { db, callRPC } from '../supabase.js';
-import { formatDateBR, formatTimeHM, openMontrealBooking, getGameStatusLabel, getCourtReservationStatusLabel, isLevelEligible, getAllowedGameLevels, getLocalDateISO } from '../utils.js?v=1.5.8';
+import { formatDateBR, formatTimeHM, openMontrealBooking, getGameStatusLabel, getCourtReservationStatusLabel, isLevelEligible, getAllowedGameLevels, getLocalDateISO, formatPhone, getWhatsAppUrl } from '../utils.js?v=1.5.9';
 import { notifyOpenGameJoined } from '../notifications.js';
 
 const isSameUser = (code1, code2) => {
@@ -37,10 +37,11 @@ export async function renderGameDetail(params) {
 
         const { data: participants } = await db.from('mt_game_participants').select('*').eq('game_id', gameId);
         
-        // Busca os nomes e perfis dos participantes e do criador
+        // Busca os nomes, perfis e telefones dos participantes e do criador
         const participantCodes = (participants || []).map(p => p.customer_code);
-        const codesToFetch = [...new Set([...participantCodes, game.creator_customer_code].filter(Boolean))];
+        const codesToFetch = [...new Set([...participantCodes, game.creator_customer_code, user.customer_code].filter(Boolean))];
         let playerNames = {};
+        let playerPhones = {};
         if (codesToFetch.length > 0) {
             const { data: profiles } = await db.from('mt_game_profiles')
                 .select('customer_code, display_name')
@@ -48,14 +49,14 @@ export async function renderGameDetail(params) {
             if (profiles) {
                 profiles.forEach(p => { playerNames[p.customer_code] = p.display_name; });
             }
-            const missingCodes = codesToFetch.filter(c => !playerNames[c]);
-            if (missingCodes.length > 0) {
-                const { data: clientes } = await db.from('mt_clientes')
-                    .select('customer_code, name')
-                    .in('customer_code', missingCodes);
-                if (clientes) {
-                    clientes.forEach(c => { playerNames[c.customer_code] = c.name; });
-                }
+            const { data: clientes } = await db.from('mt_clientes')
+                .select('customer_code, name, mobile, mobile_normalizado')
+                .in('customer_code', codesToFetch);
+            if (clientes) {
+                clientes.forEach(c => {
+                    if (!playerNames[c.customer_code]) playerNames[c.customer_code] = c.name;
+                    playerPhones[c.customer_code] = c.mobile_normalizado || c.mobile || '';
+                });
             }
         }
 
@@ -63,6 +64,7 @@ export async function renderGameDetail(params) {
         const myParticipant = participants?.find(p => isSameUser(p.customer_code, user.customer_code));
         const isJoined = !!myParticipant;
 
+        const creatorPhone = playerPhones[game.creator_customer_code] || (isCreator ? (user.phone || '') : '');
         const creatorName = isCreator ? (user.display_name || user.name || "Você") : (playerNames[game.creator_customer_code] || "Tenista da Montreal");
         const creatorFirstName = isCreator ? "Você" : creatorName.split(' ')[0];
 
@@ -70,11 +72,6 @@ export async function renderGameDetail(params) {
         const opponentOfCreator = participants?.find(p => !isSameUser(p.customer_code, game.creator_customer_code));
 
         // Determina quem é o participante adversário dependendo de quem está visualizando:
-        // - Se o usuário logado está na partida:
-        //     - se é o criador, seu adversário é o opponentOfCreator (ou null se ainda for vaga aberta)
-        //     - se não é o criador (é o desafiante), seu adversário é o criador
-        // - Se o usuário logado NÃO está na partida (visitante vendo o desafio):
-        //     - o adversário mostrado no confronto é o opponentOfCreator (ou null se for vaga aberta)
         let opponentParticipant = null;
         if (isJoined) {
             opponentParticipant = isCreator 
@@ -84,11 +81,16 @@ export async function renderGameDetail(params) {
             opponentParticipant = opponentOfCreator;
         }
 
+        const opponentCode = opponentParticipant ? opponentParticipant.customer_code : null;
+        const opponentPhone = opponentCode ? (playerPhones[opponentCode] || (!isCreator && isJoined ? (user.phone || '') : '')) : '';
         const opponentName = opponentParticipant 
             ? (playerNames[opponentParticipant.customer_code] || (isJoined && !isCreator ? creatorName : "Adversário")) 
             : (isJoined ? "Aguardando Adversário" : "Vaga Aberta");
         const opponentFirstName = opponentParticipant ? opponentName.split(' ')[0] : (isJoined ? "A Definir" : "Vaga Aberta");
         const userFirstName = (user.display_name || user.name || "Você").split(' ')[0];
+        const userPhone = playerPhones[user.customer_code] || user.phone || '';
+
+        const canManageGame = (isJoined || user.is_admin) && !latestResult && game.status !== 'cancelled' && game.status !== 'completed';
 
         // Busca o resultado completo cadastrado via RPC
         let latestResult = null;
@@ -295,41 +297,145 @@ export async function renderGameDetail(params) {
 
                     ${isJoined ? `
                         <div style="display: flex; justify-content: space-around; align-items: center; background: rgba(0,0,0,0.03); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--color-grey-border);">
-                            <div style="text-align: center; flex: 1;">
+                            <div style="text-align: center; flex: 1; padding: 4px;">
                                 <div style="font-size: 11px; color: var(--color-grey-text); font-weight: 700; text-transform: uppercase;">Você</div>
                                 <div style="font-size: 14px; font-weight: 800; color: var(--color-saibro); margin-top: 2px;">
                                     👤 ${userFirstName}
                                 </div>
                                 <div style="font-size: 10px; color: var(--color-grey-text);">${isCreator ? '(Criador)' : '(Jogador)'}</div>
+                                ${userPhone ? `
+                                    <div style="font-size: 11px; color: var(--color-grey-text); margin-top: 4px;">
+                                        📱 ${formatPhone(userPhone)}
+                                    </div>
+                                ` : ''}
                             </div>
                             <div style="font-weight: 800; color: var(--color-grey-text); font-size: 13px;">VS</div>
-                            <div style="text-align: center; flex: 1;">
+                            <div style="text-align: center; flex: 1; padding: 4px;">
                                 <div style="font-size: 11px; color: var(--color-grey-text); font-weight: 700; text-transform: uppercase;">Adversário</div>
                                 <div style="font-size: 14px; font-weight: 800; color: ${opponentParticipant ? 'var(--color-preto)' : 'var(--color-grey-text)'}; margin-top: 2px;">
                                     🎾 ${opponentName}
                                 </div>
                                 <div style="font-size: 10px; color: var(--color-grey-text);">${opponentParticipant ? 'Confirmado' : 'Aguardando Desafiante'}</div>
+                                ${opponentParticipant && opponentPhone ? `
+                                    <div style="margin-top: 4px;">
+                                        <a href="${getWhatsAppUrl(opponentPhone, `Olá ${opponentFirstName}, sou o ${userFirstName}! Estou entrando em contato pelo Ranking da Montreal sobre nossa partida marcada para ${formatDateBR(game.game_date)} às ${formatTimeHM(game.start_time)}.`)}" 
+                                           target="_blank" rel="noopener noreferrer" 
+                                           title="Conversar no WhatsApp (${formatPhone(opponentPhone)})"
+                                           style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #15803d; background: #dcfce7; padding: 3px 8px; border-radius: 6px; text-decoration: none; border: 1px solid #86efac;">
+                                            <span>💬 ${formatPhone(opponentPhone)}</span>
+                                        </a>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     ` : `
                         <div style="display: flex; justify-content: space-around; align-items: center; background: rgba(0,0,0,0.03); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--color-grey-border);">
-                            <div style="text-align: center; flex: 1;">
+                            <div style="text-align: center; flex: 1; padding: 4px;">
                                 <div style="font-size: 11px; color: var(--color-grey-text); font-weight: 700; text-transform: uppercase;">Criador do Desafio</div>
                                 <div style="font-size: 14px; font-weight: 800; color: var(--color-saibro); margin-top: 2px;">
                                     👤 ${creatorName}
                                 </div>
                                 <div style="font-size: 10px; color: var(--color-grey-text);">Nível ${game.accepted_level}</div>
+                                ${creatorPhone ? `
+                                    <div style="margin-top: 4px;">
+                                        <a href="${getWhatsAppUrl(creatorPhone, `Olá ${creatorFirstName}, vi sua partida no Ranking da Montreal!`)}" 
+                                           target="_blank" rel="noopener noreferrer" 
+                                           title="Conversar no WhatsApp (${formatPhone(creatorPhone)})"
+                                           style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #15803d; background: #dcfce7; padding: 3px 8px; border-radius: 6px; text-decoration: none; border: 1px solid #86efac;">
+                                            <span>💬 ${formatPhone(creatorPhone)}</span>
+                                        </a>
+                                    </div>
+                                ` : ''}
                             </div>
                             <div style="font-weight: 800; color: var(--color-grey-text); font-size: 13px;">VS</div>
-                            <div style="text-align: center; flex: 1;">
+                            <div style="text-align: center; flex: 1; padding: 4px;">
                                 <div style="font-size: 11px; color: var(--color-grey-text); font-weight: 700; text-transform: uppercase;">Adversário</div>
                                 <div style="font-size: 14px; font-weight: 800; color: ${opponentParticipant ? 'var(--color-preto)' : 'var(--color-saibro)'}; margin-top: 2px;">
                                     🎾 ${opponentParticipant ? opponentName : 'Vaga Aberta'}
                                 </div>
                                 <div style="font-size: 10px; color: var(--color-grey-text);">${opponentParticipant ? 'Confirmado' : 'Aguardando Inscrição'}</div>
+                                ${opponentParticipant && opponentPhone ? `
+                                    <div style="margin-top: 4px;">
+                                        <a href="${getWhatsAppUrl(opponentPhone, `Olá ${opponentFirstName}, vi sua partida no Ranking da Montreal!`)}" 
+                                           target="_blank" rel="noopener noreferrer" 
+                                           title="Conversar no WhatsApp (${formatPhone(opponentPhone)})"
+                                           style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #15803d; background: #dcfce7; padding: 3px 8px; border-radius: 6px; text-decoration: none; border: 1px solid #86efac;">
+                                            <span>💬 ${formatPhone(opponentPhone)}</span>
+                                        </a>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     `}
+
+                    <!-- Banner de Ação Rápida WhatsApp para o Jogador Logado -->
+                    ${isJoined && opponentParticipant && opponentPhone && !latestResult && game.status !== 'cancelled' ? `
+                        <div style="margin-top: 12px; background: #f0fdf4; border: 1.5px solid #22c55e; border-radius: var(--radius-sm); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                            <div style="min-width: 170px;">
+                                <div style="font-size: 12px; font-weight: 800; color: #15803d; display: flex; align-items: center; gap: 6px;">
+                                    <span>💬 Conversar com seu Adversário</span>
+                                </div>
+                                <div style="font-size: 11px; color: #166534; margin-top: 2px;">
+                                    Alinhe detalhes, quadra ou imprevistos com <strong>${opponentName}</strong>.
+                                </div>
+                            </div>
+                            <a href="${getWhatsAppUrl(opponentPhone, `Olá ${opponentFirstName}, sou o ${userFirstName}! Estou entrando em contato pelo Ranking da Montreal referente à nossa partida de tênis marcada para ${formatDateBR(game.game_date)} às ${formatTimeHM(game.start_time)}.`)}" 
+                               target="_blank" rel="noopener noreferrer" 
+                               class="btn btn-sm" 
+                               style="background: #16a34a; color: white; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 6px; font-size: 12px; border: none; box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);">
+                                <span>📱 Abrir no WhatsApp</span>
+                            </a>
+                        </div>
+                    ` : ''}
+
+                    <!-- Ações de Gerenciamento da Partida (Reagendar, Liberar Vaga, Cancelar Jogo) -->
+                    ${canManageGame ? `
+                        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--color-grey-border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-reschedule" style="font-size: 11px; padding: 5px 12px; width: auto; font-weight: 700;">
+                                        📅 Reagendar Partida
+                                    </button>
+                                    ${opponentParticipant ? `
+                                        <button type="button" class="btn btn-secondary btn-sm" id="btn-reopen-slot" style="font-size: 11px; padding: 5px 12px; width: auto; color: var(--color-saibro); border-color: rgba(192, 81, 49, 0.35); font-weight: 700;">
+                                            🔄 Liberar Vaga
+                                        </button>
+                                    ` : ''}
+                                </div>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-entire-game" style="font-size: 11px; padding: 5px 12px; width: auto; color: var(--color-danger); border-color: rgba(220, 53, 69, 0.35); font-weight: 700;">
+                                    ❌ Cancelar Jogo
+                                </button>
+                            </div>
+
+                            <!-- Painel de Reagendamento (oculto por padrão) -->
+                            <div id="panel-reschedule-game" style="display: none; margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.03); border: 1.5px dashed var(--color-saibro); border-radius: var(--radius-sm);">
+                                <div style="font-weight: 800; font-size: 12px; color: var(--color-saibro); margin-bottom: 4px;">
+                                    📅 Reagendar Data e Horário da Partida
+                                </div>
+                                <p style="font-size: 11px; color: var(--color-grey-text); margin-bottom: 10px; line-height: 1.3;">
+                                    Combinou uma nova data com seu adversário? Defina o novo dia e horário para manter a partida atualizada no Ranking:
+                                </p>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                                    <div style="flex: 1; min-width: 140px;">
+                                        <label class="form-label" style="font-size: 11px;">Nova Data</label>
+                                        <input type="date" class="form-control" id="reschedule-input-date" min="${getLocalDateISO()}" value="${game.game_date}" style="font-size: 12px;">
+                                    </div>
+                                    <div style="flex: 1; min-width: 110px;">
+                                        <label class="form-label" style="font-size: 11px;">Novo Horário</label>
+                                        <input type="time" class="form-control" id="reschedule-input-time" value="${formatTimeHM(game.start_time)}" style="font-size: 12px;">
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="btn-close-reschedule" style="font-size: 11px; padding: 5px 10px; width: auto;">
+                                        Cancelar
+                                    </button>
+                                    <button type="button" class="btn btn-primary btn-sm" id="btn-submit-reschedule" style="font-size: 11px; padding: 5px 14px; width: auto; font-weight: 800;">
+                                        ✅ Salvar Novo Agendamento
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
 
                     <!-- Painel de Troca de Adversário (oculto até clicar em Trocar) -->
                     ${isJoined && !latestResult ? `
@@ -769,9 +875,10 @@ export async function renderGameDetail(params) {
         const handleCloseOpenGame = async () => {
             if (!confirm("Tem certeza que deseja fechar este desafio?\n\nEle será encerrado e cancelado no ranking.")) return;
             try {
-                await callRPC('fn_mt_game_fechar_jogo_aberto', {
+                await callRPC('fn_mt_game_cancelar_partida', {
                     p_game_id: gameId,
-                    p_customer_code: user.customer_code
+                    p_customer_code: user.customer_code,
+                    p_reason: 'Fechado manualmente pelo criador'
                 });
                 alert("Desafio fechado com sucesso!");
                 renderGameDetail(params);
@@ -783,6 +890,116 @@ export async function renderGameDetail(params) {
 
         document.getElementById('btn-cancel-open-game')?.addEventListener('click', handleCloseOpenGame);
         document.getElementById('btn-cancel-invited-game')?.addEventListener('click', handleCloseOpenGame);
+
+        // Listener para abrir/fechar painel de reagendamento
+        const btnToggleReschedule = document.getElementById('btn-toggle-reschedule');
+        const panelReschedule = document.getElementById('panel-reschedule-game');
+        const btnCloseReschedule = document.getElementById('btn-close-reschedule');
+        const btnSubmitReschedule = document.getElementById('btn-submit-reschedule');
+
+        if (btnToggleReschedule && panelReschedule) {
+            btnToggleReschedule.addEventListener('click', () => {
+                const isHidden = panelReschedule.style.display === 'none';
+                panelReschedule.style.display = isHidden ? 'block' : 'none';
+                if (isHidden) {
+                    panelReschedule.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+        }
+
+        if (btnCloseReschedule && panelReschedule) {
+            btnCloseReschedule.addEventListener('click', () => {
+                panelReschedule.style.display = 'none';
+            });
+        }
+
+        if (btnSubmitReschedule) {
+            btnSubmitReschedule.addEventListener('click', async () => {
+                const newDate = document.getElementById('reschedule-input-date')?.value;
+                const newTime = document.getElementById('reschedule-input-time')?.value;
+
+                if (!newDate || !newTime) {
+                    alert('Por favor, informe a nova data e horário para reagendar a partida.');
+                    return;
+                }
+
+                const todayISO = getLocalDateISO();
+                if (newDate < todayISO) {
+                    alert('A data do reagendamento não pode ser anterior a hoje (' + formatDateBR(todayISO) + ').');
+                    return;
+                }
+
+                if (!confirm(`Confirmar o reagendamento desta partida para ${formatDateBR(newDate)} às ${formatTimeHM(newTime)}?`)) {
+                    return;
+                }
+
+                btnSubmitReschedule.disabled = true;
+                btnSubmitReschedule.textContent = 'Salvando...';
+
+                try {
+                    const res = await callRPC('fn_mt_game_reagendar_partida', {
+                        p_game_id: gameId,
+                        p_customer_code: user.customer_code,
+                        p_new_date: newDate,
+                        p_new_time: newTime
+                    });
+
+                    alert(res?.message || 'Partida reagendada com sucesso!');
+                    renderGameDetail(params);
+                } catch (errReschedule) {
+                    console.error('Erro ao reagendar partida:', errReschedule);
+                    alert('Erro ao reagendar: ' + (errReschedule.message || 'Tente novamente.'));
+                    btnSubmitReschedule.disabled = false;
+                    btnSubmitReschedule.textContent = '✅ Salvar Novo Agendamento';
+                }
+            });
+        }
+
+        // Listener para cancelar partida por completo
+        const btnCancelEntireGame = document.getElementById('btn-cancel-entire-game');
+        if (btnCancelEntireGame) {
+            btnCancelEntireGame.addEventListener('click', async () => {
+                if (!confirm("Tem certeza que deseja cancelar esta partida?\n\nEla será encerrada definitivamente no ranking e a reserva de quadra (se houver) será desmarcada.")) {
+                    return;
+                }
+                const reason = prompt("Informe o motivo do cancelamento (opcional):", "Imprevisto / Indisponibilidade de horário") || "Cancelado pelos atletas";
+
+                try {
+                    const res = await callRPC('fn_mt_game_cancelar_partida', {
+                        p_game_id: gameId,
+                        p_customer_code: user.customer_code,
+                        p_reason: reason
+                    });
+                    alert(res?.message || 'Partida cancelada com sucesso.');
+                    renderGameDetail(params);
+                } catch (errCancel) {
+                    console.error('Erro ao cancelar partida:', errCancel);
+                    alert('Erro ao cancelar partida: ' + (errCancel.message || 'Tente novamente.'));
+                }
+            });
+        }
+
+        // Listener para liberar vaga / desistir da partida (voltando para vaga aberta)
+        const btnReopenSlot = document.getElementById('btn-reopen-slot');
+        if (btnReopenSlot) {
+            btnReopenSlot.addEventListener('click', async () => {
+                if (!confirm("Deseja desvincular o adversário e reabrir este desafio como Vaga Aberta?\n\nOutro tenista do nível do jogo poderá se candidatar e entrar na partida.")) {
+                    return;
+                }
+
+                try {
+                    const res = await callRPC('fn_mt_game_desistir_ou_reabrir_vaga', {
+                        p_game_id: gameId,
+                        p_customer_code: user.customer_code
+                    });
+                    alert(res?.message || 'Vaga reaberta com sucesso!');
+                    renderGameDetail(params);
+                } catch (errReopen) {
+                    console.error('Erro ao reabrir vaga:', errReopen);
+                    alert('Erro ao reabrir vaga: ' + (errReopen.message || 'Tente novamente.'));
+                }
+            });
+        }
 
         document.getElementById('btn-detail-booking')?.addEventListener('click', openMontrealBooking);
 

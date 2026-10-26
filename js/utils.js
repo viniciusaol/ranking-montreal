@@ -26,7 +26,10 @@ export function formatTimeHM(timeStr) {
 
 export function formatPhone(phoneStr) {
     if (!phoneStr) return '';
-    const clean = phoneStr.replace(/\D/g, '');
+    let clean = phoneStr.replace(/\D/g, '');
+    if (clean.startsWith('55') && clean.length > 11) {
+        clean = clean.substring(2);
+    }
     if (clean.length === 11) {
         return `(${clean.substring(0,2)}) ${clean.substring(2,7)}-${clean.substring(7)}`;
     }
@@ -34,6 +37,15 @@ export function formatPhone(phoneStr) {
         return `(${clean.substring(0,2)}) ${clean.substring(2,6)}-${clean.substring(6)}`;
     }
     return phoneStr;
+}
+
+export function getWhatsAppUrl(phoneStr, message = '') {
+    if (!phoneStr) return '';
+    let clean = phoneStr.replace(/\D/g, '');
+    if (!clean.startsWith('55') && (clean.length === 10 || clean.length === 11)) {
+        clean = '55' + clean;
+    }
+    return `https://wa.me/${clean}${message ? '?text=' + encodeURIComponent(message) : ''}`;
 }
 
 export function getInitials(name) {

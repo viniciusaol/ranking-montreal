@@ -731,49 +731,72 @@ $function$;
 -- ====================================================================
 -- FECHAR JOGO / DESAFIO ABERTO MANUALMENTE PELO CRIADOR OU ADMIN
 -- ====================================================================
-CREATE OR REPLACE FUNCTION public.fn_mt_game_fechar_jogo_aberto(
+-- 1. Cancelar Partida (aberta, aguardando ou confirmada)
+CREATE OR REPLACE FUNCTION public.fn_mt_game_cancelar_partida(
     p_game_id uuid,
-    p_customer_code text
+    p_customer_code text,
+    p_reason text DEFAULT NULL
 )
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $function$
 DECLARE
-    v_creator_code text;
-    v_status text;
+    v_game record;
+    v_is_participant boolean := false;
     v_is_admin boolean := false;
+    v_canceler_name text;
 BEGIN
-    SELECT creator_customer_code, status 
-    INTO v_creator_code, v_status
-    FROM public.mt_games 
+    SELECT * INTO v_game
+    FROM public.mt_games
     WHERE id = p_game_id;
 
-    IF v_status IS NULL THEN
+    IF v_game.id IS NULL THEN
         RAISE EXCEPTION 'Partida não encontrada.';
     END IF;
 
-    IF v_status NOT IN ('open', 'awaiting_confirmation') THEN
-        RAISE EXCEPTION 'Apenas partidas abertas ou aguardando confirmação podem ser fechadas (status atual: %).', v_status;
+    IF v_game.status IN ('completed', 'cancelled', 'voided') THEN
+        RAISE EXCEPTION 'Esta partida já está com status % e não pode ser cancelada.', v_game.status;
+    END IF;
+
+    IF v_game.creator_customer_code = p_customer_code THEN
+        v_is_participant := true;
+    ELSE
+        SELECT EXISTS (
+            SELECT 1 FROM public.mt_game_participants
+            WHERE game_id = p_game_id AND customer_code = p_customer_code
+        ) INTO v_is_participant;
     END IF;
 
     SELECT COALESCE(is_admin, false) INTO v_is_admin
     FROM public.mt_game_profiles
     WHERE customer_code = p_customer_code;
 
-    IF v_creator_code IS DISTINCT FROM p_customer_code AND NOT v_is_admin THEN
-        RAISE EXCEPTION 'Acesso negado: apenas o criador deste desafio ou o administrador podem fechá-lo.';
+    IF NOT v_is_participant AND NOT v_is_admin THEN
+        RAISE EXCEPTION 'Acesso negado: apenas os atletas da partida ou administradores podem cancelar.';
+    END IF;
+
+    SELECT COALESCE(display_name, 'Atleta') INTO v_canceler_name
+    FROM public.mt_game_profiles
+    WHERE customer_code = p_customer_code;
+
+    IF v_canceler_name IS NULL THEN
+        SELECT name INTO v_canceler_name FROM public.mt_clientes WHERE customer_code = p_customer_code;
     END IF;
 
     UPDATE public.mt_games
     SET status = 'cancelled',
-        notes = COALESCE(notes, '') || ' [Fechado manualmente: sem adversário]',
+        court_reservation_status = CASE 
+            WHEN court_reservation_status = 'reserva_declarada' THEN 'reserva_cancelada' 
+            ELSE court_reservation_status 
+        END,
+        notes = TRIM(COALESCE(notes, '') || ' [Cancelada por ' || COALESCE(v_canceler_name, 'Atleta') || COALESCE(': ' || p_reason, '') || ' em ' || to_char(now(), 'DD/MM/YYYY HH24:MI') || ']'),
         updated_at = now()
     WHERE id = p_game_id;
 
     UPDATE public.mt_game_participants
     SET invite_status = 'cancelled'
-    WHERE game_id = p_game_id AND invite_status = 'pending';
+    WHERE game_id = p_game_id;
 
     INSERT INTO public.mt_game_notifications (
         game_id,
@@ -785,19 +808,184 @@ BEGIN
     ) VALUES (
         p_game_id,
         p_customer_code,
-        'open_game_closed_manually',
+        'game_cancelled',
         'sent',
         now(),
         jsonb_build_object(
-            'event', 'open_game_closed_manually',
+            'event', 'game_cancelled',
             'game_id', p_game_id,
-            'closed_by', p_customer_code
+            'cancelled_by', p_customer_code,
+            'canceler_name', v_canceler_name,
+            'reason', p_reason
         )
     );
 
     RETURN json_build_object(
         'success', true,
-        'message', 'Desafio aberto fechado com sucesso.'
+        'message', 'Partida cancelada com sucesso.'
+    );
+END;
+$function$;
+
+-- 2. Fechar Desafio Aberto Manualmente (mantém compatibilidade)
+CREATE OR REPLACE FUNCTION public.fn_mt_game_fechar_jogo_aberto(
+    p_game_id uuid,
+    p_customer_code text
+)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+BEGIN
+    RETURN public.fn_mt_game_cancelar_partida(p_game_id, p_customer_code, 'Fechado/Cancelado manualmente');
+END;
+$function$;
+
+-- 3. Desistir / Reabrir Vaga Aberta
+CREATE OR REPLACE FUNCTION public.fn_mt_game_desistir_ou_reabrir_vaga(
+    p_game_id uuid,
+    p_customer_code text
+)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+DECLARE
+    v_game record;
+    v_is_creator boolean := false;
+    v_is_opponent boolean := false;
+    v_is_admin boolean := false;
+    v_canceler_name text;
+    v_opponent_code text;
+BEGIN
+    SELECT * INTO v_game
+    FROM public.mt_games
+    WHERE id = p_game_id;
+
+    IF v_game.id IS NULL THEN
+        RAISE EXCEPTION 'Partida não encontrada.';
+    END IF;
+
+    IF v_game.status NOT IN ('open', 'awaiting_confirmation', 'confirmed') THEN
+        RAISE EXCEPTION 'Apenas partidas não concluídas podem ter vaga reaberta.';
+    END IF;
+
+    v_is_creator := (v_game.creator_customer_code = p_customer_code);
+
+    SELECT customer_code INTO v_opponent_code
+    FROM public.mt_game_participants
+    WHERE game_id = p_game_id AND customer_code <> v_game.creator_customer_code
+    LIMIT 1;
+
+    v_is_opponent := (v_opponent_code = p_customer_code);
+
+    SELECT COALESCE(is_admin, false) INTO v_is_admin
+    FROM public.mt_game_profiles
+    WHERE customer_code = p_customer_code;
+
+    IF NOT v_is_creator AND NOT v_is_opponent AND NOT v_is_admin THEN
+        RAISE EXCEPTION 'Acesso negado: apenas os atletas envolvidos ou administradores podem reabrir a vaga.';
+    END IF;
+
+    SELECT COALESCE(display_name, 'Atleta') INTO v_canceler_name
+    FROM public.mt_game_profiles
+    WHERE customer_code = p_customer_code;
+
+    IF v_canceler_name IS NULL THEN
+        SELECT name INTO v_canceler_name FROM public.mt_clientes WHERE customer_code = p_customer_code;
+    END IF;
+
+    IF v_opponent_code IS NOT NULL THEN
+        DELETE FROM public.mt_game_participants
+        WHERE game_id = p_game_id AND customer_code = v_opponent_code;
+    END IF;
+
+    UPDATE public.mt_games
+    SET status = 'open',
+        notes = TRIM(COALESCE(notes, '') || ' [Vaga reaberta por ' || COALESCE(v_canceler_name, 'Atleta') || ' em ' || to_char(now(), 'DD/MM/YYYY HH24:MI') || ']'),
+        updated_at = now()
+    WHERE id = p_game_id;
+
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Vaga da partida reaberta para novos desafiantes.'
+    );
+END;
+$function$;
+
+-- 4. Reagendar Partida (Alterar Data e Horário para Frente)
+CREATE OR REPLACE FUNCTION public.fn_mt_game_reagendar_partida(
+    p_game_id uuid,
+    p_customer_code text,
+    p_new_date date,
+    p_new_time time
+)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+DECLARE
+    v_game record;
+    v_is_participant boolean := false;
+    v_is_admin boolean := false;
+    v_editor_name text;
+    v_old_date date;
+    v_old_time time;
+BEGIN
+    SELECT * INTO v_game
+    FROM public.mt_games
+    WHERE id = p_game_id;
+
+    IF v_game.id IS NULL THEN
+        RAISE EXCEPTION 'Partida não encontrada.';
+    END IF;
+
+    IF v_game.status NOT IN ('open', 'awaiting_confirmation', 'confirmed') THEN
+        RAISE EXCEPTION 'Apenas partidas abertas ou confirmadas podem ser reagendadas (status atual: %).', v_game.status;
+    END IF;
+
+    IF p_new_date < CURRENT_DATE THEN
+        RAISE EXCEPTION 'A nova data da partida não pode ser anterior a hoje.';
+    END IF;
+
+    IF v_game.creator_customer_code = p_customer_code THEN
+        v_is_participant := true;
+    ELSE
+        SELECT EXISTS (
+            SELECT 1 FROM public.mt_game_participants
+            WHERE game_id = p_game_id AND customer_code = p_customer_code
+        ) INTO v_is_participant;
+    END IF;
+
+    SELECT COALESCE(is_admin, false) INTO v_is_admin
+    FROM public.mt_game_profiles
+    WHERE customer_code = p_customer_code;
+
+    IF NOT v_is_participant AND NOT v_is_admin THEN
+        RAISE EXCEPTION 'Acesso negado: apenas os atletas da partida ou administradores podem reagendar.';
+    END IF;
+
+    SELECT COALESCE(display_name, 'Atleta') INTO v_editor_name
+    FROM public.mt_game_profiles
+    WHERE customer_code = p_customer_code;
+
+    IF v_editor_name IS NULL THEN
+        SELECT name INTO v_editor_name FROM public.mt_clientes WHERE customer_code = p_customer_code;
+    END IF;
+
+    v_old_date := v_game.game_date;
+    v_old_time := v_game.start_time;
+
+    UPDATE public.mt_games
+    SET game_date = p_new_date,
+        start_time = p_new_time,
+        notes = TRIM(COALESCE(notes, '') || ' [Reagendado de ' || to_char(v_old_date, 'DD/MM/YYYY') || ' ' || to_char(v_old_time, 'HH24:MI') || ' para ' || to_char(p_new_date, 'DD/MM/YYYY') || ' ' || to_char(p_new_time, 'HH24:MI') || ' por ' || COALESCE(v_editor_name, 'Atleta') || ']'),
+        updated_at = now()
+    WHERE id = p_game_id;
+
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Partida reagendada com sucesso para ' || to_char(p_new_date, 'DD/MM/YYYY') || ' às ' || to_char(p_new_time, 'HH24:MI') || '.'
     );
 END;
 $function$;
