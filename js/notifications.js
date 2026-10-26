@@ -666,6 +666,72 @@ Uma ótima semana e excelentes jogos a todos no Montreal Tênis Clube! 🎾👊`
 }
 
 /**
+ * Busca jogos abertos sem adversário e dispara uma única mensagem consolidada
+ * de resumo para o grupo do ranking no WhatsApp (cooldown de 3 dias / 70h).
+ */
+export async function processOpenGamesDigest(ignoreCooldown = false) {
+    if (!CONFIG.NOTIFICATIONS || !CONFIG.NOTIFICATIONS.ENABLED) {
+        return { success: false, reason: 'Notificações desabilitadas nas configurações.' };
+    }
+
+    try {
+        const digestList = await callRPC('fn_mt_ranking_obter_resumo_jogos_abertos_grupo', {
+            p_min_hours_between_sends: 70,
+            p_ignore_cooldown: ignoreCooldown
+        });
+
+        if (!digestList || digestList.length === 0) {
+            return { 
+                success: true, 
+                total_open_games: 0, 
+                sent: false, 
+                message: ignoreCooldown ? 'Nenhum jogo aberto sem adversário no momento.' : 'Nenhum envio necessário (sem jogos abertos ou disparado nos últimos 3 dias).' 
+            };
+        }
+
+        const digest = digestList[0];
+        const targetGroup = digest.target_group_jid || CONFIG.NOTIFICATIONS.RANKING_GROUP_JID;
+
+        if (CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL && CONFIG.NOTIFICATIONS.UAZAPI_TOKEN && targetGroup) {
+            const endpoint = `${CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL.replace(/\/+$/, '')}/send/text`;
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'token': CONFIG.NOTIFICATIONS.UAZAPI_TOKEN
+                },
+                body: JSON.stringify({
+                    number: targetGroup,
+                    text: digest.formatted_message
+                })
+            });
+
+            if (resp.ok) {
+                // Registra o envio no banco
+                await callRPC('fn_mt_ranking_registrar_resumo_jogos_abertos', {
+                    p_total_games: digest.total_open_games,
+                    p_game_ids: digest.open_game_ids
+                });
+
+                return {
+                    success: true,
+                    total_open_games: digest.total_open_games,
+                    sent: true,
+                    message: `Resumo com ${digest.total_open_games} jogo(s) aberto(s) enviado com sucesso no grupo do WhatsApp!`
+                };
+            } else {
+                const errJson = await resp.json().catch(() => ({}));
+                return { success: false, error: errJson.message || 'Falha ao enviar resumo para o grupo via Uazapi.' };
+            }
+        }
+        return { success: false, reason: 'Uazapi não configurado.' };
+    } catch (err) {
+        console.error('Erro ao processar resumo de jogos abertos:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
  * Envia o código de segurança (OTP) de 6 dígitos diretamente para o WhatsApp do atleta
  * para validação de identidade no login do aplicativo.
  */

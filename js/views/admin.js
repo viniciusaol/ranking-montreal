@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { db, callRPC } from '../supabase.js';
 import { formatDateBR, formatPhone, getInitials } from '../utils.js?v=1.4.8';
-import { processPendingScoreReminders, processInactivityReminders, notifyWeeklyRankingRound } from '../notifications.js?v=1.7.1';
+import { processPendingScoreReminders, processInactivityReminders, notifyWeeklyRankingRound, processOpenGamesDigest } from '../notifications.js?v=1.7.2';
 
 let allActivatedAthletes = [];
 
@@ -214,11 +214,14 @@ export async function renderAdmin() {
                 </div>
 
                 <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+                    <button class="btn btn-secondary btn-sm" id="btn-trigger-open-games-digest" style="font-size: 12px; font-weight: 700; color: var(--color-saibro); border-color: rgba(192, 81, 49, 0.4); background: white;">
+                        🎾 Resumo de Jogos Abertos no Grupo
+                    </button>
                     <button class="btn btn-secondary btn-sm" id="btn-trigger-weekly-group" style="font-size: 12px; font-weight: 700; color: #0284c7; border-color: rgba(2, 132, 199, 0.4); background: white;">
-                        🎾 Enviar Chamada da Semana no Grupo
+                        📢 Chamada da Semana no Grupo
                     </button>
                     <button class="btn btn-primary btn-sm" id="btn-trigger-inactivity-reminders" style="background: #0284c7; border-color: #0284c7; font-size: 12px; font-weight: 800;">
-                        📢 Disparar Lembretes Privados Agora
+                        👤 Disparar Lembretes Privados
                     </button>
                 </div>
             </div>
@@ -388,7 +391,30 @@ export async function renderAdmin() {
             alert("Erro: " + err.message);
         } finally {
             btn.disabled = false;
-            btn.textContent = "🎾 Enviar Chamada da Semana no Grupo";
+            btn.textContent = "📢 Chamada da Semana no Grupo";
+        }
+    });
+
+    document.getElementById('btn-trigger-open-games-digest')?.addEventListener('click', async () => {
+        const confirmed = confirm("Deseja verificar os jogos abertos sem adversário e disparar o resumo no grupo oficial do Ranking no WhatsApp?");
+        if (!confirmed) return;
+
+        const btn = document.getElementById('btn-trigger-open-games-digest');
+        btn.disabled = true;
+        btn.textContent = "Verificando e enviando...";
+
+        try {
+            const res = await processOpenGamesDigest(true);
+            if (res.success) {
+                alert(res.message);
+            } else {
+                alert("Erro ao disparar resumo no grupo: " + (res.error || res.reason));
+            }
+        } catch (err) {
+            alert("Erro: " + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "🎾 Resumo de Jogos Abertos no Grupo";
         }
     });
 

@@ -1334,5 +1334,181 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $function$;
 
+-- ====================================================================
+-- RESUMO CONSOLIDADO DE JOGOS ABERTOS SEM ADVERSÁRIO (1X A CADA 3 DIAS NO GRUPO)
+-- ====================================================================
+CREATE OR REPLACE FUNCTION public.fn_mt_ranking_obter_resumo_jogos_abertos_grupo(
+    p_min_hours_between_sends integer DEFAULT 70,
+    p_ignore_cooldown boolean DEFAULT false
+)
+RETURNS TABLE(
+    total_open_games integer,
+    target_group_jid text,
+    formatted_message text,
+    open_game_ids uuid[]
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+DECLARE
+    v_target_group text := '120363428928893345@g.us';
+    v_link text := 'https://ranking.montrealtenis.com.br/#/jogos/abertos';
+    v_total integer := 0;
+    v_game_ids uuid[] := ARRAY[]::uuid[];
+    v_items_text text := '';
+    v_msg text;
+    r RECORD;
+    v_idx integer := 0;
+    v_idx_emoji text;
+    v_dow_str text;
+    v_date_str text;
+    v_time_str text;
+    v_challengers text;
+    v_duration text;
+BEGIN
+    -- 1. Verifica Cooldown (1x a cada 3 dias / padrão 70 horas)
+    IF NOT p_ignore_cooldown THEN
+        IF EXISTS (
+            SELECT 1 
+            FROM public.mt_game_notifications n
+            WHERE n.event_type = 'open_games_digest'
+              AND n.sent_at >= (now() - (p_min_hours_between_sends || ' hours')::interval)
+        ) THEN
+            RETURN;
+        END IF;
+    END IF;
+
+    -- 2. Coleta os jogos abertos futuros que ainda não têm adversário
+    FOR r IN
+        SELECT 
+            g.id,
+            g.game_date,
+            g.start_time,
+            COALESCE(g.duration_minutes, 60) as duration_minutes,
+            g.accepted_level,
+            g.gender_category,
+            COALESCE(gp.display_name, c.name, 'Tenista Montreal') as creator_name
+        FROM public.mt_games g
+        LEFT JOIN public.mt_game_profiles gp ON gp.customer_code = g.creator_customer_code
+        LEFT JOIN public.mt_clientes c ON c.customer_code = g.creator_customer_code
+        WHERE g.status = 'open'
+          AND g.game_date >= CURRENT_DATE
+          AND (
+              SELECT COUNT(part.id) 
+              FROM public.mt_game_participants part 
+              WHERE part.game_id = g.id AND part.invite_status = 'accepted'
+          ) < 2
+        ORDER BY g.game_date ASC, g.start_time ASC
+    LOOP
+        v_total := v_total + 1;
+        v_idx := v_idx + 1;
+        v_game_ids := array_append(v_game_ids, r.id);
+
+        v_dow_str := CASE extract(dow FROM r.game_date)
+            WHEN 0 THEN 'Domingo'
+            WHEN 1 THEN 'Segunda-feira'
+            WHEN 2 THEN 'Terça-feira'
+            WHEN 3 THEN 'Quarta-feira'
+            WHEN 4 THEN 'Quinta-feira'
+            WHEN 5 THEN 'Sexta-feira'
+            WHEN 6 THEN 'Sábado'
+        END;
+        v_date_str := to_char(r.game_date, 'DD/MM');
+        v_time_str := to_char(r.start_time, 'HH24:MI');
+        v_duration := r.duration_minutes || ' min';
+
+        v_challengers := CASE r.accepted_level
+            WHEN 'A' THEN 'Tenistas de Nível A e B'
+            WHEN 'B' THEN 'Tenistas de Nível B e C'
+            WHEN 'C' THEN 'Tenistas de Nível C e D'
+            WHEN 'D' THEN 'Tenistas de Nível D'
+            ELSE 'Tenistas de Nível ' || r.accepted_level
+        END;
+
+        v_idx_emoji := CASE v_idx
+            WHEN 1 THEN '1️⃣'
+            WHEN 2 THEN '2️⃣'
+            WHEN 3 THEN '3️⃣'
+            WHEN 4 THEN '4️⃣'
+            WHEN 5 THEN '5️⃣'
+            WHEN 6 THEN '6️⃣'
+            WHEN 7 THEN '7️⃣'
+            WHEN 8 THEN '8️⃣'
+            WHEN 9 THEN '9️⃣'
+            ELSE '🎾'
+        END;
+
+        v_items_text := v_items_text || 
+            v_idx_emoji || ' *Nível ' || r.accepted_level || ' (' || COALESCE(r.gender_category, 'Masculino') || ')*' || E'\n' ||
+            '👤 *Criador:* ' || r.creator_name || E'\n' ||
+            '📅 *Data:* ' || v_dow_str || ', ' || v_date_str || ' às ' || v_time_str || ' (' || v_duration || ')' || E'\n' ||
+            '👥 *Quem pode entrar:* ' || v_challengers || E'\n\n';
+    END LOOP;
+
+    -- Se não houver nenhum jogo aberto, não envia nada
+    IF v_total = 0 THEN
+        RETURN;
+    END IF;
+
+    -- 3. Formatação da Mensagem Consolidada
+    IF v_total = 1 THEN
+        v_msg := '🎾 *DESAFIO ABERTO AGUARDANDO ADVERSÁRIO!* 🎾' || E'\n\n' ||
+                 'Fala, tenistas da Montreal! 🔥' || E'\n' ||
+                 'Temos *1 partida aberta* esperando adversário para entrar em quadra no saibro:' || E'\n\n' ||
+                 v_items_text ||
+                 'Quem topa o desafio? Acesse o app e garanta sua vaga:' || E'\n' ||
+                 '👉 ' || v_link || E'\n\n' ||
+                 'Bora pro saibro da Montreal! 🎾👊';
+    ELSE
+        v_msg := '🎾 *DESAFIOS ABERTOS NO RANKING MONTREAL!* 🎾' || E'\n\n' ||
+                 'Fala, tenistas da Montreal! 🔥' || E'\n' ||
+                 'Temos *' || v_total || ' partidas com vagas abertas* esperando adversários para entrar em quadra no saibro:' || E'\n\n' ||
+                 v_items_text ||
+                 'Quem topa entrar na disputa? Acesse o app e escolha seu jogo:' || E'\n' ||
+                 '👉 ' || v_link || E'\n\n' ||
+                 'Não achou um horário livre? Abra seu próprio desafio no app e convoque a galera! 🎾👊';
+    END IF;
+
+    RETURN QUERY SELECT 
+        v_total,
+        v_target_group,
+        v_msg,
+        v_game_ids;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.fn_mt_ranking_registrar_resumo_jogos_abertos(
+    p_total_games integer,
+    p_game_ids uuid[] DEFAULT NULL
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+BEGIN
+    INSERT INTO public.mt_game_notifications (
+        customer_code,
+        event_type,
+        status,
+        sent_at,
+        payload
+    ) VALUES (
+        'SYSTEM_ADMIN',
+        'open_games_digest',
+        'sent',
+        now(),
+        jsonb_build_object(
+            'event', 'open_games_digest_sent',
+            'total_games', p_total_games,
+            'game_ids', p_game_ids
+        )
+    );
+    RETURN true;
+EXCEPTION WHEN OTHERS THEN
+    RETURN false;
+END;
+$function$;
+
+
 
 

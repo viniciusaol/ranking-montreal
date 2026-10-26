@@ -1,0 +1,215 @@
+{
+  "name": "Montreal Ranking - Resumo de Jogos Abertos no Grupo (1x a cada 3 dias)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 11 * * *"
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-daily-check",
+      "name": "Verificar Diariamente às 11:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "resumo-jogos-abertos-montreal",
+        "options": {}
+      },
+      "id": "node-webhook-manual-digest",
+      "name": "Webhook - Disparo Manual",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        420
+      ],
+      "webhookId": "montreal-open-games-digest-webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ehhjnwosqcrfwonqhfoz.supabase.co/rest/v1/rpc/fn_mt_ranking_obter_resumo_jogos_abertos_grupo",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"p_min_hours_between_sends\": 70,\n  \"p_ignore_cooldown\": false\n}",
+        "options": {}
+      },
+      "id": "node-supabase-query-digest",
+      "name": "Buscar Resumo de Jogos Abertos no Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normaliza a resposta da RPC. Se não houver jogos ou cooldown ativo, retorna vazio.\nconst rawData = $input.all();\nconst results = [];\n\nfor (const item of rawData) {\n  const data = item.json;\n  if (Array.isArray(data)) {\n    for (const sub of data) {\n      if (sub && sub.total_open_games > 0 && sub.formatted_message) {\n        results.push({ json: sub });\n      }\n    }\n  } else if (data && data.total_open_games > 0 && data.formatted_message) {\n    results.push({ json: data });\n  }\n}\n\nreturn results;"
+      },
+      "id": "node-filter-valid-digest",
+      "name": "Filtrar se Há Jogos Abertos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://montrealtenis.uazapi.com/send/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "4a87a0fd-84b0-404d-83e3-de5d2d7d0022"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.target_group_jid }}\",\n  \"text\": \"{{ $json.formatted_message }}\"\n}",
+        "options": {}
+      },
+      "id": "node-uazapi-send-group-digest",
+      "name": "Disparar Resumo no Grupo (Uazapi)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ehhjnwosqcrfwonqhfoz.supabase.co/rest/v1/rpc/fn_mt_ranking_registrar_resumo_jogos_abertos",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_total_games\": {{ $('Filtrar se Há Jogos Abertos').item.json.total_open_games }},\n  \"p_game_ids\": {{ JSON.stringify($('Filtrar se Há Jogos Abertos').item.json.open_game_ids) }}\n}",
+        "options": {}
+      },
+      "id": "node-supabase-record-digest-sent",
+      "name": "Registrar Envio no Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        320
+      ]
+    }
+  ],
+  "connections": {
+    "Verificar Diariamente às 11:30": {
+      "main": [
+        [
+          {
+            "node": "Buscar Resumo de Jogos Abertos no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Disparo Manual": {
+      "main": [
+        [
+          {
+            "node": "Buscar Resumo de Jogos Abertos no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Resumo de Jogos Abertos no Supabase": {
+      "main": [
+        [
+          {
+            "node": "Filtrar se Há Jogos Abertos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar se Há Jogos Abertos": {
+      "main": [
+        [
+          {
+            "node": "Disparar Resumo no Grupo (Uazapi)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disparar Resumo no Grupo (Uazapi)": {
+      "main": [
+        [
+          {
+            "node": "Registrar Envio no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
