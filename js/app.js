@@ -11,7 +11,7 @@ import { CONFIG } from './config.js';
 import { renderHome } from './views/home.js?v=1.9.3';
 import { renderRanking } from './views/ranking.js?v=1.6.2';
 import { renderGameCreate } from './views/game-create.js?v=1.8.2';
-import { renderGameDetail } from './views/game-detail.js?v=1.9.9';
+import { renderGameDetail } from './views/game-detail.js?v=1.9.10';
 import { renderMyGames } from './views/my-games.js?v=1.5.9';
 import { renderProfile } from './views/profile.js?v=1.7.1';
 import { renderAdmin } from './views/admin.js?v=1.9.6';

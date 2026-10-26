@@ -90,8 +90,6 @@ export async function renderGameDetail(params) {
         const userFirstName = (user.display_name || user.name || "Você").split(' ')[0];
         const userPhone = playerPhones[user.customer_code] || user.phone || '';
 
-        const canManageGame = (isJoined || user.is_admin) && !latestResult && game.status !== 'cancelled' && game.status !== 'completed';
-
         // Busca o resultado completo cadastrado via RPC
         let latestResult = null;
         try {
@@ -102,6 +100,8 @@ export async function renderGameDetail(params) {
         } catch (e) {
             console.warn("Erro ao buscar resultado:", e);
         }
+
+        const canManageGame = (isJoined || user.is_admin) && !latestResult && game.status !== 'cancelled' && game.status !== 'completed';
 
         // Se o usuário é participante e ainda não há placar registrado, busca adversários recentes
         let recentOpponents = [];
