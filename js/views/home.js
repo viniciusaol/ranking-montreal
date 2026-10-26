@@ -4,9 +4,9 @@
 
 import { state } from '../state.js';
 import { callRPC } from '../supabase.js';
-import { formatDateBR, openMontrealBooking, getCurrentSeasonYear } from '../utils.js?v=1.5.7';
+import { formatDateBR, openMontrealBooking, getCurrentSeasonYear, getLocalDateISO } from '../utils.js?v=1.5.8';
 
-let selectedDate = new Date().toISOString().split('T')[0];
+let selectedDate = getLocalDateISO();
 
 export async function renderHome() {
     const container = document.getElementById('view-content');
@@ -75,7 +75,7 @@ export async function renderHome() {
     for (let i = 0; i < 5; i++) {
         const d = new Date(today);
         d.setDate(today.getDate() + i);
-        const iso = d.toISOString().split('T')[0];
+        const iso = getLocalDateISO(d);
         
         let label = '';
         if (i === 0) label = 'Hoje';

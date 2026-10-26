@@ -8,6 +8,17 @@ export function formatDateBR(dateStr) {
     return `${day}/${month}/${year}`;
 }
 
+/**
+ * Retorna a data no formato ISO YYYY-MM-DD respeitando o fuso horário local (Brasil/Curitiba).
+ * Evita o bug de fuso horário do .toISOString() que pula para o dia seguinte a partir das 21:00 (UTC-3).
+ */
+export function getLocalDateISO(d = new Date()) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 export function formatTimeHM(timeStr) {
     if (!timeStr) return '';
     return timeStr.substring(0, 5);

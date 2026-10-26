@@ -4,7 +4,7 @@
 
 import { state } from '../state.js';
 import { db, callRPC } from '../supabase.js';
-import { formatDateBR, formatTimeHM, openMontrealBooking, getGameStatusLabel, getCourtReservationStatusLabel, isLevelEligible, getAllowedGameLevels } from '../utils.js?v=1.4.8';
+import { formatDateBR, formatTimeHM, openMontrealBooking, getGameStatusLabel, getCourtReservationStatusLabel, isLevelEligible, getAllowedGameLevels, getLocalDateISO } from '../utils.js?v=1.5.8';
 import { notifyOpenGameJoined } from '../notifications.js';
 
 const isSameUser = (code1, code2) => {
@@ -676,7 +676,7 @@ export async function renderGameDetail(params) {
                 const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
                     p_player1_code: user.customer_code,
                     p_player2_code: game.creator_customer_code,
-                    p_game_date: game.game_date || new Date().toISOString().split('T')[0]
+                    p_game_date: game.game_date || getLocalDateISO()
                 });
                 if (limitCheck && limitCheck.length > 0 && !limitCheck[0].can_play) {
                     alert(`🚫 ENTRADA BLOQUEADA PELO REGULAMENTO:\n\n${limitCheck[0].message}`);
@@ -1107,7 +1107,7 @@ export async function renderGameDetail(params) {
                 const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
                     p_player1_code: user.customer_code,
                     p_player2_code: tempSelectedOpponent.customer_code,
-                    p_game_date: game.game_date || new Date().toISOString().split('T')[0]
+                    p_game_date: game.game_date || getLocalDateISO()
                 });
                 if (limitCheck && limitCheck.length > 0 && !limitCheck[0].can_play) {
                     alert(`🚫 CONFRONTO NÃO PERMITIDO PELO REGULAMENTO:\n\n${limitCheck[0].message}`);
@@ -1213,7 +1213,7 @@ async function submitGameScore(user, game, participants, selectedScoreOpponent =
         const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
             p_player1_code: user.customer_code,
             p_player2_code: finalOpponentCode,
-            p_game_date: game.game_date || new Date().toISOString().split('T')[0]
+            p_game_date: game.game_date || getLocalDateISO()
         });
         if (limitCheck && limitCheck.length > 0 && !limitCheck[0].can_play) {
             alert(`🚫 CONFRONTO NÃO PERMITIDO PELO REGULAMENTO:\n\n${limitCheck[0].message}`);

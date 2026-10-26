@@ -4,7 +4,7 @@
 
 import { state } from '../state.js';
 import { db, callRPC } from '../supabase.js';
-import { openMontrealBooking, getAllowedGameLevels, isLevelEligible, LEVEL_LABELS, isRankingSeasonActive } from '../utils.js?v=1.5.7';
+import { openMontrealBooking, getAllowedGameLevels, isLevelEligible, LEVEL_LABELS, isRankingSeasonActive, getLocalDateISO } from '../utils.js?v=1.5.8';
 import { notifyOpenGameCreated, notifyDirectGameInvite } from '../notifications.js?v=1.6.9';
 
 let selectedInvitedPlayer = null;
@@ -21,7 +21,7 @@ export async function renderGameCreate() {
     if (!user) return;
 
     const draft = state.loadDraftGame();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateISO();
     const isDecember = !isRankingSeasonActive();
     selectedInvitedPlayer = null;
 
@@ -285,7 +285,7 @@ export async function renderGameCreate() {
             }
 
             // Validação de limite de 2 confrontos a cada 30 dias (Regra 5 do regulamento)
-            const gameDateVal = document.getElementById('game-date')?.value || new Date().toISOString().split('T')[0];
+            const gameDateVal = document.getElementById('game-date')?.value || getLocalDateISO();
             try {
                 const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
                     p_player1_code: user.customer_code,
@@ -351,7 +351,7 @@ export async function renderGameCreate() {
                 }
 
                 // Validação de limite de 2 confrontos a cada 30 dias (Regra 5 do regulamento)
-                const gameDateVal = document.getElementById('game-date')?.value || new Date().toISOString().split('T')[0];
+                const gameDateVal = document.getElementById('game-date')?.value || getLocalDateISO();
                 try {
                     const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
                         p_player1_code: user.customer_code,
@@ -466,7 +466,7 @@ async function handleGameCreation(user) {
             const limitCheck = await callRPC('fn_mt_game_verificar_limite_confrontos', {
                 p_player1_code: user.customer_code,
                 p_player2_code: selectedInvitedPlayer.customer_code,
-                p_game_date: gameDateVal || new Date().toISOString().split('T')[0]
+                p_game_date: gameDateVal || getLocalDateISO()
             });
             if (limitCheck && limitCheck.length > 0 && !limitCheck[0].can_play) {
                 alert(`🚫 CONFRONTO NÃO PERMITIDO PELO REGULAMENTO:\n\n${limitCheck[0].message}`);
