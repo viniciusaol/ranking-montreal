@@ -1198,4 +1198,141 @@ BEGIN
 END;
 $function$;
 
+-- ====================================================================
+-- OBTENÇÃO DE ATLETAS INATIVOS (> 7 DIAS SEM JOGAR) PARA LEMBRETE NO WHATSAPP
+-- ====================================================================
+CREATE OR REPLACE FUNCTION public.fn_mt_ranking_obter_atletas_inativos_lembrete(
+    p_min_days_inactive integer DEFAULT 7,
+    p_cooldown_days integer DEFAULT 7
+)
+RETURNS TABLE(
+    customer_code text,
+    athlete_name text,
+    athlete_phone text,
+    level_code text,
+    days_inactive integer,
+    last_activity_date date,
+    game_link text,
+    formatted_message text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+DECLARE
+    r RECORD;
+    v_phone text;
+    v_link text := 'https://ranking.montrealtenis.com.br/#/jogos/criar';
+    v_msg text;
+BEGIN
+    FOR r IN
+        SELECT 
+            p.customer_code,
+            COALESCE(p.display_name, c.name, 'Tenista') as athlete_name,
+            COALESCE(c.mobile_normalizado, c.mobile) as raw_phone,
+            p.current_level::text as current_level,
+            COALESCE(MAX(g.game_date), p.created_at::date) as last_activity_date,
+            (CURRENT_DATE - COALESCE(MAX(g.game_date), p.created_at::date))::integer as days_inactive
+        FROM public.mt_game_profiles p
+        LEFT JOIN public.mt_clientes c ON c.customer_code = p.customer_code
+        LEFT JOIN public.mt_game_participants part ON part.customer_code = p.customer_code AND part.invite_status = 'accepted'
+        LEFT JOIN public.mt_games g ON g.id = part.game_id AND (g.status = 'completed' OR EXISTS (SELECT 1 FROM public.mt_game_results res WHERE res.game_id = g.id))
+        WHERE p.is_active = true
+        GROUP BY p.customer_code, p.display_name, c.name, c.mobile_normalizado, c.mobile, p.current_level, p.created_at
+        HAVING (CURRENT_DATE - COALESCE(MAX(g.game_date), p.created_at::date)) >= p_min_days_inactive
+        ORDER BY days_inactive DESC
+    LOOP
+        -- 1. Verifica se já não possui partida confirmada agendada para hoje ou data futura
+        IF EXISTS (
+            SELECT 1 
+            FROM public.mt_game_participants part2
+            JOIN public.mt_games g2 ON g2.id = part2.game_id
+            WHERE part2.customer_code = r.customer_code
+              AND part2.invite_status = 'accepted'
+              AND g2.game_date >= CURRENT_DATE
+              AND g2.status = 'confirmed'
+        ) THEN
+            CONTINUE;
+        END IF;
+
+        -- 2. Anti-spam / Cooldown: Verifica se já não recebeu lembrete de inatividade no período de cooldown
+        IF EXISTS (
+            SELECT 1 
+            FROM public.mt_game_notifications n
+            WHERE n.customer_code = r.customer_code
+              AND n.event_type = 'inactivity_reminder'
+              AND n.sent_at >= (now() - (p_cooldown_days || ' days')::interval)
+        ) THEN
+            CONTINUE;
+        END IF;
+
+        -- 3. Normalização e Validação do Telefone
+        v_phone := public.fn_mt_normalizar_telefone(r.raw_phone);
+        IF length(v_phone) IN (10, 11) THEN
+            v_phone := '55' || v_phone;
+        END IF;
+
+        IF v_phone IS NOT NULL AND length(v_phone) >= 10 THEN
+            v_msg := '🎾 *BORA PRA QUADRA? O RANKING MONTREAL TE ESPERA!* 🎾' || E'\n\n' ||
+                     'Olá, *' || r.athlete_name || '*! Tudo bem?' || E'\n' ||
+                     'Notamos que você está há *' || r.days_inactive || ' dias* sem disputar uma partida oficial pelo Ranking da Montreal no saibro! 🔥' || E'\n\n' ||
+                     '🏆 *Seu Nível Atual:* Nível ' || r.current_level || E'\n' ||
+                     '📈 *Dica do Ranking:* Jogar partidas regulares mantém seu ritmo de jogo afiado, soma pontos para subir na tabela e evita penalização por inatividade.' || E'\n\n' ||
+                     'Bora movimentar a raquete esta semana? Você pode:' || E'\n' ||
+                     '1️⃣ *Abrir um Desafio Aberto:* Escolha o dia/horário ideal e o app avisa outros tenistas do seu nível!' || E'\n' ||
+                     '2️⃣ *Convidar um Amigo Direto:* Agende com qualquer tenista cadastrado no clube buscando pelo WhatsApp.' || E'\n' ||
+                     '3️⃣ *Entrar em Jogos Abertos:* Veja partidas aguardando adversário no seu nível.' || E'\n\n' ||
+                     '👉 *Acesse o app para marcar sua partida agora:*' || E'\n' ||
+                     v_link || E'\n\n' ||
+                     'Nos vemos no saibro da Montreal! 🎾👊';
+
+            RETURN QUERY SELECT 
+                r.customer_code,
+                r.athlete_name,
+                v_phone,
+                r.current_level,
+                r.days_inactive,
+                r.last_activity_date,
+                v_link,
+                v_msg;
+        END IF;
+    END LOOP;
+END;
+$function$;
+
+-- ====================================================================
+-- REGISTRAR ENVIO DE LEMBRETE DE INATIVIDADE
+-- ====================================================================
+CREATE OR REPLACE FUNCTION public.fn_mt_ranking_registrar_lembrete_inatividade(
+    p_customer_code text,
+    p_days_inactive integer DEFAULT NULL
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+BEGIN
+    INSERT INTO public.mt_game_notifications (
+        customer_code,
+        event_type,
+        status,
+        sent_at,
+        payload
+    ) VALUES (
+        p_customer_code,
+        'inactivity_reminder',
+        'sent',
+        now(),
+        jsonb_build_object(
+            'event', 'inactivity_reminder_sent',
+            'days_inactive', p_days_inactive,
+            'customer_code', p_customer_code
+        )
+    );
+    RETURN true;
+EXCEPTION WHEN OTHERS THEN
+    RETURN false;
+END;
+$function$;
+
+
 

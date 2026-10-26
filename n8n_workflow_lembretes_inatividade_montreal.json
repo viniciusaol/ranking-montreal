@@ -1,0 +1,304 @@
+{
+  "name": "Montreal Ranking - Lembretes de Inatividade (>7 dias) e Chamada Semanal",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * *"
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-daily-inactivity",
+      "name": "Disparo Diário às 10:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lembretes-inatividade-montreal",
+        "options": {}
+      },
+      "id": "node-webhook-manual-inactivity",
+      "name": "Webhook - Inatividade Manual",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        400
+      ],
+      "webhookId": "montreal-inactivity-webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ehhjnwosqcrfwonqhfoz.supabase.co/rest/v1/rpc/fn_mt_ranking_obter_atletas_inativos_lembrete",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"p_min_days_inactive\": 7,\n  \"p_cooldown_days\": 7\n}",
+        "options": {}
+      },
+      "id": "node-supabase-query-inactives",
+      "name": "Buscar Atletas Inativos (>7 dias)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normaliza o array de atletas inativos retornado pelo Supabase\nconst rawData = $input.all();\nconst results = [];\n\nfor (const item of rawData) {\n  const data = item.json;\n  if (Array.isArray(data)) {\n    for (const sub of data) {\n      if (sub && sub.athlete_phone) {\n        results.push({ json: sub });\n      }\n    }\n  } else if (data && data.athlete_phone) {\n    results.push({ json: data });\n  }\n}\n\nreturn results;"
+      },
+      "id": "node-format-inactivity-list",
+      "name": "Extrair Atletas Inativos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://montrealtenis.uazapi.com/send/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "4a87a0fd-84b0-404d-83e3-de5d2d7d0022"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.athlete_phone }}\",\n  \"text\": \"{{ $json.formatted_message }}\"\n}",
+        "options": {}
+      },
+      "id": "node-uazapi-send-inactivity",
+      "name": "Disparar WhatsApp Privado (Uazapi)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ehhjnwosqcrfwonqhfoz.supabase.co/rest/v1/rpc/fn_mt_ranking_registrar_lembrete_inatividade",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaGpud29zcWNyZndvbnFoZm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4OTc4NjksImV4cCI6MjA3ODQ3Mzg2OX0.qxbGgdq3lOiOmXuY8fMok7xlNluKPQIKoC3zQroUYSQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_customer_code\": \"{{ $('Extrair Atletas Inativos').item.json.customer_code }}\",\n  \"p_days_inactive\": {{ $('Extrair Atletas Inativos').item.json.days_inactive }}\n}",
+        "options": {}
+      },
+      "id": "node-supabase-record-inactivity-sent",
+      "name": "Registrar Envio no Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-weekly-group",
+      "name": "Toda Segunda às 09:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chamada-semanal-grupo-montreal",
+        "options": {}
+      },
+      "id": "node-webhook-weekly-group",
+      "name": "Webhook - Chamada Grupo Manual",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        800
+      ],
+      "webhookId": "montreal-weekly-group-webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://montrealtenis.uazapi.com/send/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "4a87a0fd-84b0-404d-83e3-de5d2d7d0022"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"number\": \"120363428928893345@g.us\",\n  \"text\": \"🎾 *SEMANA DO RANKING MONTREAL: BORA PRO SAIBRO!* 🎾\\n\\nFala, tenistas da Montreal! 🔥\\nComeçando mais uma semana decisiva para movimentar o Ranking!\\n\\n💡 *Dicas para a rodada desta semana:*\\n• Mantenha o ritmo de jogos para subir na tabela e evitar perda por inatividade;\\n• Cada vitória soma +30 pontos e a participação soma +10 pontos no seu nível;\\n• Atletas podem desafiar tenistas do seu nível atual ou de 1 nível acima!\\n\\n📱 *Como jogar nesta semana:*\\n1️⃣ *Crie um Desafio Aberto:* Escolha seu horário ideal e o app avisa todo mundo no grupo!\\n👉 https://ranking.montrealtenis.com.br/#/jogos/criar\\n\\n2️⃣ *Confira as Vagas Abertas:* Veja quem já está esperando adversário no app:\\n👉 https://ranking.montrealtenis.com.br/#/jogos/abertos\\n\\n3️⃣ *Convite um Amigo Direto:* Agende sua partida buscando qualquer tenista do clube pelo WhatsApp.\\n\\nUma ótima semana e excelentes jogos a todos no Montreal Tênis Clube! 🎾👊\"\n}",
+        "options": {}
+      },
+      "id": "node-uazapi-send-group",
+      "name": "Disparar Mensagem no Grupo Oficial",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        580,
+        710
+      ]
+    }
+  ],
+  "connections": {
+    "Disparo Diário às 10:00": {
+      "main": [
+        [
+          {
+            "node": "Buscar Atletas Inativos (>7 dias)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Inatividade Manual": {
+      "main": [
+        [
+          {
+            "node": "Buscar Atletas Inativos (>7 dias)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Atletas Inativos (>7 dias)": {
+      "main": [
+        [
+          {
+            "node": "Extrair Atletas Inativos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Atletas Inativos": {
+      "main": [
+        [
+          {
+            "node": "Disparar WhatsApp Privado (Uazapi)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disparar WhatsApp Privado (Uazapi)": {
+      "main": [
+        [
+          {
+            "node": "Registrar Envio no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Toda Segunda às 09:30": {
+      "main": [
+        [
+          {
+            "node": "Disparar Mensagem no Grupo Oficial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Chamada Grupo Manual": {
+      "main": [
+        [
+          {
+            "node": "Disparar Mensagem no Grupo Oficial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

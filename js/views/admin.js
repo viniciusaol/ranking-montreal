@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { db, callRPC } from '../supabase.js';
 import { formatDateBR, formatPhone, getInitials } from '../utils.js?v=1.4.8';
-import { processPendingScoreReminders } from '../notifications.js?v=1.7.0';
+import { processPendingScoreReminders, processInactivityReminders, notifyWeeklyRankingRound } from '../notifications.js?v=1.7.1';
 
 let allActivatedAthletes = [];
 
@@ -195,6 +195,34 @@ export async function renderAdmin() {
                 </div>
             </div>
 
+            <!-- Seção de Lembretes de Inatividade & Engajamento Semanal -->
+            <div class="card" style="border-left: 5px solid #0284c7;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap;">
+                    <div>
+                        <span class="card-title" style="color: #0284c7; margin-bottom: 2px;">
+                            🏃 Lembretes de Inatividade (> 7 dias sem jogar) & Grupo
+                        </span>
+                        <div style="font-size: 11px; color: var(--color-grey-text); line-height: 1.4;">
+                            • <strong>Individual no Privado:</strong> Notifica diretamente pelo WhatsApp atletas sem jogos há mais de 1 semana com link para agendar jogo (cooldown de 7 dias entre envios).<br>
+                            • <strong>Chamada Geral no Grupo:</strong> Dispara mensagem motivacional semanal no grupo oficial do ranking da Montreal incentivando a rodada da semana.
+                        </div>
+                    </div>
+                </div>
+
+                <div id="admin-inactivity-reminders-box" style="margin-top: 14px; background: rgba(0,0,0,0.02); padding: 12px; border-radius: var(--radius-sm); border: 1px dashed var(--color-grey-border);">
+                    <p style="text-align: center; color: var(--color-grey-text); font-size: 12px; margin: 0;">Consultando atletas sem jogar há mais de 1 semana...</p>
+                </div>
+
+                <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+                    <button class="btn btn-secondary btn-sm" id="btn-trigger-weekly-group" style="font-size: 12px; font-weight: 700; color: #0284c7; border-color: rgba(2, 132, 199, 0.4); background: white;">
+                        🎾 Enviar Chamada da Semana no Grupo
+                    </button>
+                    <button class="btn btn-primary btn-sm" id="btn-trigger-inactivity-reminders" style="background: #0284c7; border-color: #0284c7; font-size: 12px; font-weight: 800;">
+                        📢 Disparar Lembretes Privados Agora
+                    </button>
+                </div>
+            </div>
+
             <div id="admin-disputes-container">
                 <p style="text-align: center; color: var(--color-text-muted); padding: var(--space-md);">Carregando contestações...</p>
             </div>
@@ -205,6 +233,7 @@ export async function renderAdmin() {
     loadActivatedAthletes(user);
     loadRankingConfig();
     loadScoreReminders();
+    loadInactivityReminders();
     loadSystemStats();
 
     // Listeners da Seção de Atletas
@@ -315,6 +344,54 @@ export async function renderAdmin() {
         }
     });
 
+    document.getElementById('btn-trigger-inactivity-reminders')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-trigger-inactivity-reminders');
+        btn.disabled = true;
+        btn.textContent = "Disparando lembretes...";
+
+        try {
+            const res = await processInactivityReminders();
+            if (res.success) {
+                if (res.sent_count > 0) {
+                    alert(`✅ Sucesso! ${res.sent_count} lembrete(s) de inatividade enviado(s) via WhatsApp aos atletas.`);
+                } else {
+                    alert("Tudo em dia! Nenhum atleta inativo pendente de lembrete no momento (ou todos já foram notificados nos últimos 7 dias).");
+                }
+            } else {
+                alert("Erro ao disparar lembretes: " + (res.error || res.reason));
+            }
+            await loadInactivityReminders();
+        } catch (err) {
+            alert("Erro: " + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "📢 Disparar Lembretes Privados Agora";
+        }
+    });
+
+    document.getElementById('btn-trigger-weekly-group')?.addEventListener('click', async () => {
+        const confirmed = confirm("Deseja enviar a mensagem motivacional da rodada da semana agora no grupo oficial do Ranking Montreal no WhatsApp?");
+        if (!confirmed) return;
+
+        const btn = document.getElementById('btn-trigger-weekly-group');
+        btn.disabled = true;
+        btn.textContent = "Enviando no grupo...";
+
+        try {
+            const res = await notifyWeeklyRankingRound();
+            if (res.success) {
+                alert("🎾 Mensagem motivacional enviada com sucesso no grupo do WhatsApp da Montreal!");
+            } else {
+                alert("Erro ao enviar mensagem no grupo: " + (res.error || res.reason));
+            }
+        } catch (err) {
+            alert("Erro: " + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "🎾 Enviar Chamada da Semana no Grupo";
+        }
+    });
+
     try {
         const { data: disputedGames } = await db.from('mt_games').select('*').eq('status', 'disputed');
         const disputesBox = document.getElementById('admin-disputes-container');
@@ -383,6 +460,44 @@ async function loadScoreReminders() {
         if (statReminders) statReminders.textContent = list ? list.length : 0;
     } catch (err) {
         box.innerHTML = `<span style="color: var(--color-danger); font-size: 11px;">Erro ao carregar lembretes: ${err.message}</span>`;
+    }
+}
+
+async function loadInactivityReminders() {
+    const box = document.getElementById('admin-inactivity-reminders-box');
+    if (!box) return;
+
+    try {
+        const list = await callRPC('fn_mt_ranking_obter_atletas_inativos_lembrete');
+        if (!list || list.length === 0) {
+            box.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px; color: #166534; font-size: 12px; font-weight: 700;">
+                    <span>✅</span> Todos os atletas estão ativos com partidas recentes ou já receberam lembrete nos últimos 7 dias!
+                </div>
+            `;
+            return;
+        }
+
+        box.innerHTML = `
+            <div style="font-size: 12px; font-weight: 800; color: #0284c7; margin-bottom: 8px;">
+                🏃 ${list.length} atleta(s) elegível(is) para lembrete (> 7 dias sem jogar):
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                ${list.map(item => `
+                    <div style="background: white; border: 1px solid var(--color-border); border-radius: 6px; padding: 8px 10px; font-size: 11px;">
+                        <div style="display: flex; justify-content: space-between; font-weight: 700;">
+                            <span>${item.athlete_name} (${formatPhone(item.athlete_phone)})</span>
+                            <span class="badge badge-level-${item.level_code}" style="font-size: 9px;">Nível ${item.level_code}</span>
+                        </div>
+                        <div style="color: var(--color-saibro); margin-top: 2px; font-weight: 700;">
+                            ⏳ ${item.days_inactive} dias sem jogar • Última atividade: ${formatDateBR(item.last_activity_date)}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } catch (err) {
+        box.innerHTML = `<span style="color: var(--color-danger); font-size: 11px;">Erro ao carregar inativos: ${err.message}</span>`;
     }
 }
 

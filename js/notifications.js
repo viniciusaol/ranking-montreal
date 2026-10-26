@@ -514,6 +514,158 @@ export async function processPendingScoreReminders() {
 }
 
 /**
+ * Busca atletas sem jogar há mais de 1 semana (> 7 dias) e dispara lembretes individuais via WhatsApp
+ * incentivando o agendamento de novas partidas oficiais pelo ranking.
+ */
+export async function processInactivityReminders(minDays = 7, cooldownDays = 7) {
+    if (!CONFIG.NOTIFICATIONS || !CONFIG.NOTIFICATIONS.ENABLED) {
+        return { success: false, reason: 'Notificações desabilitadas nas configurações.' };
+    }
+
+    try {
+        const inactiveList = await callRPC('fn_mt_ranking_obter_atletas_inativos_lembrete', {
+            p_min_days_inactive: minDays,
+            p_cooldown_days: cooldownDays
+        });
+
+        if (!inactiveList || inactiveList.length === 0) {
+            return { success: true, total_pending: 0, sent_count: 0, message: 'Nenhum atleta elegível para lembrete de inatividade no momento.' };
+        }
+
+        let sentCount = 0;
+        let failCount = 0;
+
+        for (const item of inactiveList) {
+            try {
+                if (CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL && CONFIG.NOTIFICATIONS.UAZAPI_TOKEN && item.athlete_phone) {
+                    const endpoint = `${CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL.replace(/\/+$/, '')}/send/text`;
+                    const resp = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'token': CONFIG.NOTIFICATIONS.UAZAPI_TOKEN
+                        },
+                        body: JSON.stringify({
+                            number: item.athlete_phone,
+                            text: item.formatted_message
+                        })
+                    });
+
+                    if (resp.ok) {
+                        sentCount++;
+                        await callRPC('fn_mt_ranking_registrar_lembrete_inatividade', {
+                            p_customer_code: item.customer_code,
+                            p_days_inactive: item.days_inactive
+                        });
+                    } else {
+                        failCount++;
+                    }
+                }
+            } catch (errItem) {
+                console.warn(`Erro ao enviar lembrete de inatividade para ${item.athlete_name}:`, errItem);
+                failCount++;
+            }
+        }
+
+        return {
+            success: true,
+            total_pending: inactiveList.length,
+            sent_count: sentCount,
+            fail_count: failCount
+        };
+    } catch (err) {
+        console.error('Erro ao processar lembretes de inatividade:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Envia uma mensagem motivacional semanal no grupo do WhatsApp da Montreal
+ * estimulando todos os tenistas a movimentarem a rodada e criarem desafios abertos.
+ */
+export async function notifyWeeklyRankingRound() {
+    if (!CONFIG.NOTIFICATIONS || !CONFIG.NOTIFICATIONS.ENABLED) {
+        return { success: false, reason: 'Notificações desabilitadas nas configurações.' };
+    }
+
+    const groupJid = CONFIG.NOTIFICATIONS.RANKING_GROUP_JID;
+    if (!groupJid) {
+        return { success: false, reason: 'Grupo do WhatsApp não configurado nas configurações.' };
+    }
+
+    const baseUrl = CONFIG.APP_PUBLIC_URL || (window.location.origin + window.location.pathname.replace(/\/+$/, ''));
+    const createGameLink = `${baseUrl}/#/jogos/criar`;
+    const openGamesLink = `${baseUrl}/#/jogos/abertos`;
+
+    const messageText = 
+`🎾 *SEMANA DO RANKING MONTREAL: BORA PRO SAIBRO!* 🎾
+
+Fala, tenistas da Montreal! 🔥
+Começando mais uma semana decisiva para movimentar o Ranking!
+
+💡 *Dicas para a rodada desta semana:*
+• Mantenha o ritmo de jogos para subir na tabela e evitar perda por inatividade;
+• Cada vitória soma +30 pontos e a participação soma +10 pontos no seu nível;
+• Atletas podem desafiar tenistas do seu nível atual ou de 1 nível acima!
+
+📱 *Como jogar nesta semana:*
+1️⃣ *Crie um Desafio Aberto:* Escolha seu horário ideal e o app avisa todo mundo no grupo!
+👉 ${createGameLink}
+
+2️⃣ *Confira as Vagas Abertas:* Veja quem já está esperando adversário no app:
+👉 ${openGamesLink}
+
+3️⃣ *Convite um Amigo Direto:* Agende sua partida buscando qualquer tenista do clube pelo WhatsApp.
+
+Uma ótima semana e excelentes jogos a todos no Montreal Tênis Clube! 🎾👊`;
+
+    try {
+        if (CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL && CONFIG.NOTIFICATIONS.UAZAPI_TOKEN) {
+            const endpoint = `${CONFIG.NOTIFICATIONS.UAZAPI_SERVER_URL.replace(/\/+$/, '')}/send/text`;
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'token': CONFIG.NOTIFICATIONS.UAZAPI_TOKEN
+                },
+                body: JSON.stringify({
+                    number: groupJid,
+                    text: messageText
+                })
+            });
+
+            if (resp.ok) {
+                // Registra log da mensagem de grupo
+                try {
+                    await db.from('mt_game_notifications').insert({
+                        customer_code: 'SYSTEM_ADMIN',
+                        event_type: 'weekly_group_round_call',
+                        status: 'sent',
+                        sent_at: new Date().toISOString(),
+                        payload: {
+                            event: 'weekly_group_round_call',
+                            target_group_jid: groupJid,
+                            formatted_message: messageText
+                        }
+                    });
+                } catch (dbErr) {
+                    console.warn('Erro ao registrar log de notificação semanal no banco:', dbErr);
+                }
+
+                return { success: true, message: 'Mensagem semanal da rodada enviada com sucesso no grupo do WhatsApp!' };
+            } else {
+                const errJson = await resp.json().catch(() => ({}));
+                return { success: false, error: errJson.message || 'Falha ao enviar para o grupo via Uazapi.' };
+            }
+        }
+        return { success: false, reason: 'Uazapi não configurado.' };
+    } catch (err) {
+        console.error('Erro ao enviar mensagem semanal no grupo:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
  * Envia o código de segurança (OTP) de 6 dígitos diretamente para o WhatsApp do atleta
  * para validação de identidade no login do aplicativo.
  */

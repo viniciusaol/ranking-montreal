@@ -14,7 +14,7 @@ import { renderGameCreate } from './views/game-create.js?v=1.8.1';
 import { renderGameDetail } from './views/game-detail.js?v=1.9.7';
 import { renderMyGames } from './views/my-games.js?v=1.5.9';
 import { renderProfile } from './views/profile.js?v=1.7.1';
-import { renderAdmin } from './views/admin.js?v=1.9.4';
+import { renderAdmin } from './views/admin.js?v=1.9.5';
 import { renderRetrospective } from './views/retrospective.js?v=1.6.8';
 
 // Registrar Rotas
