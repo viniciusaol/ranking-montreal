@@ -104,7 +104,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": \"{{ $json.target_group_jid }}\",\n  \"text\": \"{{ $json.formatted_message }}\"\n}",
+        "jsonBody": "={{ JSON.stringify({ number: $json.target_group_jid, text: $json.formatted_message }) }}",
         "options": {}
       },
       "id": "node-uazapi-send-group-digest",

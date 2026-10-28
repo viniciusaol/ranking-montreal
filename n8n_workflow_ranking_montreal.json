@@ -49,7 +49,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"text\": \"{{ $json.text }}\"\n}",
+        "jsonBody": "={{ JSON.stringify({ number: $json.number, text: $json.text }) }}",
         "options": {}
       },
       "id": "node-uazapi-send",

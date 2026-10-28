@@ -1033,7 +1033,7 @@ DECLARE
     v_msg1 text;
     v_msg2 text;
 BEGIN
-    -- 1. FECHAMENTO AUTOMÁTICO DE JOGOS ABERTOS COM 4 OU MAIS DIAS SEM ADVERSÁRIO / SEM RESULTADO
+    -- 1. FECHAMENTO AUTOMÁTICO DE JOGOS ABERTOS COM 4 OU MAIS DIAS SEM ADVERSÁRIO
     UPDATE public.mt_games g
     SET status = 'cancelled',
         notes = COALESCE(g.notes, '') || ' [Cancelado automaticamente após 4 dias em aberto sem adversário]',
@@ -1044,9 +1044,19 @@ BEGIN
           SELECT 1 FROM public.mt_game_results res WHERE res.game_id = g.id
       );
 
+    -- 2. FECHAMENTO AUTOMÁTICO DE JOGOS CONFIRMADOS SEM PLACAR APÓS 5 DIAS
+    UPDATE public.mt_games g
+    SET status = 'cancelled',
+        notes = COALESCE(g.notes, '') || ' [Cancelado automaticamente após 5 dias da data marcada sem registro de placar]',
+        updated_at = now()
+    WHERE g.status = 'confirmed'
+      AND g.game_date <= (CURRENT_DATE - INTERVAL '5 days')
+      AND NOT EXISTS (
+          SELECT 1 FROM public.mt_game_results res WHERE res.game_id = g.id
+      );
+
     -- ====================================================================
-    -- 2. LEMBRETE PRÉ-JOGO: 10 MINUTOS ANTES DA PARTIDA (ESTÁGIO 5)
-    -- Envia regras oficiais da partida e relembra de lançar o placar
+    -- 3. LEMBRETE PRÉ-JOGO: 10 MINUTOS ANTES DA PARTIDA (ESTÁGIO 5)
     -- ====================================================================
     FOR r_pre IN
         SELECT 
@@ -1067,7 +1077,6 @@ BEGIN
     LOOP
         v_start_time := timezone('America/Sao_Paulo', (r_pre.game_date + r_pre.start_time)::timestamp);
 
-        -- Dispara se estiver na janela de 20 minutos antes até 5 minutos após o horário agendado
         IF v_now >= (v_start_time - interval '20 minutes') AND v_now <= (v_start_time + interval '5 minutes') THEN
             SELECT p.customer_code, COALESCE(gp.display_name, c.name, 'Atleta') as name, c.mobile_normalizado, c.mobile
             INTO v_part1
@@ -1136,14 +1145,14 @@ BEGIN
                         RETURN QUERY SELECT 
                             r_pre.id, 
                             5 as stage, 
-                            'Lembrete Pré-Jogo (10 min antes)' as stage_label, 
+                            'Lembrete Pré-Jogo (10 min antes)'::text as stage_label, 
                             v_part1.customer_code as athlete_customer_code, 
                             v_part1.name as athlete_name, 
                             v_p1_phone as athlete_phone, 
                             v_part2.name as opponent_name, 
                             r_pre.game_date, 
                             r_pre.start_time, 
-                            r_pre.accepted_level as level_code, 
+                            r_pre.accepted_level::text as level_code, 
                             v_link as game_link, 
                             v_msg1 as formatted_message;
                     END IF;
@@ -1157,14 +1166,14 @@ BEGIN
                         RETURN QUERY SELECT 
                             r_pre.id, 
                             5 as stage, 
-                            'Lembrete Pré-Jogo (10 min antes)' as stage_label, 
+                            'Lembrete Pré-Jogo (10 min antes)'::text as stage_label, 
                             v_part2.customer_code as athlete_customer_code, 
                             v_part2.name as athlete_name, 
                             v_p2_phone as athlete_phone, 
                             v_part1.name as opponent_name, 
                             r_pre.game_date, 
                             r_pre.start_time, 
-                            r_pre.accepted_level as level_code, 
+                            r_pre.accepted_level::text as level_code, 
                             v_link as game_link, 
                             v_msg2 as formatted_message;
                     END IF;
@@ -1174,7 +1183,7 @@ BEGIN
     END LOOP;
 
     -- ====================================================================
-    -- 3. LEMBRETES DE PLACAR PÓS-JOGO (ESTÁGIOS 1, 2 E 3)
+    -- 4. LEMBRETES DE PLACAR PÓS-JOGO (ESTÁGIOS 1, 2 E 3)
     -- ====================================================================
     FOR r IN
         SELECT 
@@ -1302,19 +1311,19 @@ BEGIN
 
                 IF v_p1_phone IS NOT NULL AND length(v_p1_phone) >= 10 THEN
                     RETURN QUERY SELECT 
-                        r.id, v_stage, v_stage_label, v_part1.customer_code, v_part1.name, v_p1_phone, v_part2.name, r.game_date, r.start_time, r.accepted_level, v_link, v_msg1;
+                        r.id, v_stage, v_stage_label::text, v_part1.customer_code, v_part1.name, v_p1_phone, v_part2.name, r.game_date, r.start_time, r.accepted_level::text as level_code, v_link, v_msg1;
                 END IF;
 
                 IF v_p2_phone IS NOT NULL AND length(v_p2_phone) >= 10 THEN
                     RETURN QUERY SELECT 
-                        r.id, v_stage, v_stage_label, v_part2.customer_code, v_part2.name, v_p2_phone, v_part1.name, r.game_date, r.start_time, r.accepted_level, v_link, v_msg2;
+                        r.id, v_stage, v_stage_label::text, v_part2.customer_code, v_part2.name, v_p2_phone, v_part1.name, r.game_date, r.start_time, r.accepted_level::text as level_code, v_link, v_msg2;
                 END IF;
             END IF;
         END IF;
     END LOOP;
 
     -- ====================================================================
-    -- 4. AVISO PARA O CRIADOR DE JOGO ABERTO (APÓS A DATA DO JOGO SEM ADVERSÁRIO)
+    -- 5. AVISO PARA O CRIADOR DE JOGO ABERTO (APÓS A DATA DO JOGO SEM ADVERSÁRIO)
     -- ====================================================================
     FOR r_open IN
         SELECT 
@@ -1339,7 +1348,6 @@ BEGIN
     LOOP
         v_end_time := timezone('America/Sao_Paulo', (r_open.game_date + r_open.start_time)::timestamp) + (r_open.duration_minutes * interval '1 minute');
 
-        -- Dispara o aviso após o término do dia do jogo (a partir de 12 horas após o jogo até antes de 4 dias)
         IF v_now >= (v_end_time + interval '12 hours') AND v_now < (v_end_time + interval '4 days') THEN
             SELECT gp.customer_code, COALESCE(gp.display_name, c.name, 'Atleta') as name, c.mobile_normalizado, c.mobile
             INTO v_part1
@@ -1369,14 +1377,14 @@ BEGIN
                     RETURN QUERY SELECT 
                         r_open.id, 
                         4 as stage, 
-                        'Aviso: Desafio Aberto Sem Adversário' as stage_label, 
+                        'Aviso: Desafio Aberto Sem Adversário'::text as stage_label, 
                         v_part1.customer_code as athlete_customer_code, 
                         v_part1.name as athlete_name, 
                         v_p1_phone as athlete_phone, 
-                        'Sem Adversário' as opponent_name, 
+                        'Sem Adversário'::text as opponent_name, 
                         r_open.game_date, 
                         r_open.start_time, 
-                        r_open.accepted_level as level_code, 
+                        r_open.accepted_level::text as level_code, 
                         v_link as game_link, 
                         v_msg1 as formatted_message;
                 END IF;

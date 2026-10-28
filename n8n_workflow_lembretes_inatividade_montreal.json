@@ -104,7 +104,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": \"{{ $json.athlete_phone }}\",\n  \"text\": \"{{ $json.formatted_message }}\"\n}",
+        "jsonBody": "={{ JSON.stringify({ number: $json.athlete_phone, text: $json.formatted_message }) }}",
         "options": {}
       },
       "id": "node-uazapi-send-inactivity",
